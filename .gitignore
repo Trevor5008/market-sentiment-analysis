@@ -3,6 +3,22 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Editors
+.vscode/
+.idea/
+
+# Data artifacts
+data/raw/*
+data/processed/*
+
+# Reports
+reports/*.pdf
+reports/*.html
+
+# Keep folders in git
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
 # C extensions
 *.so
 
@@ -76,7 +92,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
 # IPython
 profile_default/
