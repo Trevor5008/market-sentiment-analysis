@@ -57,7 +57,24 @@ to predict future stock prices.
 
 ## Getting Started
 1. Create and activate a Python virtual environment
+
+### Environment Setup
+It is recommended to use a Python virtual environment to isolate dependencies
+
+**Python 3.10+ is recommended**
+
+```bash
+python -m venv .venv
+source .venv/bin/activate # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+```
+
 2. Install dependencies from `requirements.txt`
+
+```bash
+pip install -r requirements.txt
+```
+
 3. Run ingestion scripts under `scripts/` to reproduce datasets
 
 Example:
