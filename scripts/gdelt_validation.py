@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import re
+
 # Load the GDELT articles data
 DATA_PATH = Path("../data/raw/gdelt_articles.csv")
 df = pd.read_csv(DATA_PATH, parse_dates=["seendate"])
@@ -101,39 +102,39 @@ financial_keywords = [
     # Stock & Trading
     'stock', 'share', 'shares', 'trading', 'trader', 'nasdaq', 'nyse', 
     's&p', 'dow', 'index', 'etf', 'fund', 'hedge',
-    
+
     # Financial Metrics
     'earnings', 'revenue', 'profit', 'loss', 'margin', 'eps', 
     'guidance', 'forecast', 'outlook', 'quarter', 'quarterly',
     'annual', 'fiscal', 'billion', 'million', 'trillion',
-    
+
     # Market Movement
     'bull', 'bear', 'rally', 'surge', 'soar', 'jump', 'climb',
     'drop', 'fall', 'crash', 'plunge', 'sink', 'tumble', 'volatile',
     'gain', 'rise', 'decline', 'dip',
-    
+
     # Valuation
     'valuation', 'market cap', 'price target', 'rating', 'upgrade',
     'downgrade', 'buy', 'sell', 'hold', 'overweight', 'underweight',
-    
+
     # Business Operations  
     'ceo', 'cfo', 'executive', 'board', 'investor', 'shareholder',
     'dividend', 'buyback', 'acquisition', 'merger', 'deal', 'partnership',
     'investment', 'ipo', 'stake',
-    
+
     # Supply Chain & Operations
     'supplier', 'supply chain', 'manufacture', 'production', 'factory',
     'chip', 'semiconductor', 'shortage',
-    
+
     # Tech-Specific
     'ai', 'artificial intelligence', 'cloud', 'software', 'hardware',
     'iphone', 'android', 'windows', 'azure', 'aws', 'gpu', 'data center',
-    
+
     # MAG7 Company Names (catches articles about them)
     'apple', 'microsoft', 'google', 'alphabet', 'amazon', 'meta', 
     'facebook', 'tesla', 'nvidia', 'aapl', 'msft', 'googl', 'amzn', 
     'tsla', 'nvda',
-    
+
     # Competition & Industry
     'competitor', 'rival', 'industry', 'sector', 'antitrust', 'regulation',
     'ces', 'tech trends', 'conference', 'keynote', 'announcement', 'launch', 'unveil'

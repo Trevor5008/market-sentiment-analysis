@@ -51,6 +51,7 @@ to predict future stock prices.
 - `data/`
     `raw/` # immutable raw data (not committed/tracked)
     `processed/` # derived datasets (not committed/tracked)
+    `validation/` # location for cleaned + validated data
 - `docs/` # design notes, assumptions, sprint artifacts
 
 ---
@@ -75,12 +76,27 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+**If pip is missing from venv, run the following...
+
+```bash
+python -m ensurepip --upgrade
+python -m pip install --upgrade pip
+```
+
 3. Run ingestion scripts under `scripts/` to reproduce datasets
 
 Example:
 ```bash
 python scripts/ingest_demo.py
 ```
+
+## Validation Scripts
+
+Each dataset has a dedicated script following a shared structure
+Validation scripts audit data quality and coverage only - they do not mutate
+datasets
+
+Outputs written to `docs/validation`
 
 ## Workflow
 This project follows an **Agile sprint-based workflow**:
