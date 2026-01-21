@@ -9,10 +9,17 @@ The project is **exploratory in nature** and focuses on identifying patterns,
 correlations, and limitations in sentiment-based analysis rather than attempting
 to predict future stock prices.
 
+This repository is structured to support:
+- deterministic data ingestion
+- explicit data validation and cleaning steps
+- repeatable exploratory analysis
+- team-based development with clear process boundaries
+
 ## Table of Contents
 - [Project Goals](#project-goals)
 - [Scope & Non-Goals](#scope--non-goals)
 - [Repository Structure](#repository-structure)
+- [Data Lifecycle](#data-lifecycle)
 - [Getting Started](#getting-started)
 - [Workflow](#workflow)
 - [Contributing](#contributing)
@@ -45,15 +52,61 @@ to predict future stock prices.
 
 ## Repository Structure
 
-- `scripts/` # runnable scripts (data ingestion, utilities)
-- `src/` # reusable python modules
-- `notebooks/` # exploratory analysis and experimentation
-- `data/`
-    `raw/` # immutable raw data (not committed/tracked)
-    `processed/` # derived datasets (not committed/tracked)
-    `validation/` # location for cleaned + validated data
-- `docs/` # design notes, assumptions, sprint artifacts
+```text
+├── data/
+│   ├── raw/            # Immutable raw data (append-only)
+│   └── processed/      # Deterministically cleaned outputs
+├── scripts/
+│   ├── validate_gdelt.py
+│   ├── validate_ohlcv.py
+│   └── clean_*.py      # (to be added)
+├── notebooks/
+│   └── exploratory/
+├── docs/
+│   ├── validation/
+│   ├── assumptions.md
+│   ├── sprint_minutes/
+│   └── retrospectives/
+├── README.md
+└── CONTRIBUTING.md
 
+```
+## Data Lifecycle
+1. Raw Data (Immutable)
+- Stored under `data/raw`
+- Treated as **append-only**
+- Never manually edited
+- May be re-fetched, but prior snapshots are preserved
+2. Validation (Non-Mutating)
+- Validation scripts:
+    - **Inspect** raw data
+    - **Report** gaps, duplicates, anomalies
+    - **Do not** modify raw files
+- Outputs:
+    - console summaries
+    - optional markdown/csv reports under `docs/validation/`
+3. Cleaning (Deterministic Mutation)
+- Cleaning scripts:
+    - operate only on **validated raw data**
+    - apply deterministic transformations:
+        - deduplication
+        - language filtering
+        - relevance filtering
+        - column pruning
+        - missing value handling
+    - write outputs to `data/processed/`
+- *Cleaned data may be overwritten, as it can always be regenerated from raw inputs*
+4. Analysis (Exploratory Only)
+  - Conducted in notebooks under `notebooks/`
+  - Uses cleaned datasets only
+  - Focuses on visualization and pattern exploration
+  - No modeling or inference claims at this stage
+ 
+### Accumulation Strategy
+- Each ingestion run pulls data "up to today"
+- Raw outputs are date-stamped
+- Cleaned datasets are regenerated as needed
+- *Incremntal append and automation will be revisited **after validatoin and cleaning logic is finalized***
 ---
 
 ## Getting Started
