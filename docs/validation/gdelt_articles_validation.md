@@ -5,7 +5,7 @@
 ## Summary
 - Rows: **1400**
 - Columns: **11**
-- Date range: **2026-01-13 03:45:00+00:00 → 2026-01-13 15:00:00+00:00**
+- Date range: **2026-01-13 15:45:00+00:00 → 2026-01-14 02:00:00+00:00**
 
 ## Schema
 - Missing required columns: `[]`
@@ -19,7 +19,7 @@
 - language: 0.0%
 - domain: 0.0%
 - sourceCountry: 100.0%
-- socialimage: 16.57%
+- socialimage: 22.86%
 - company: 0.0%
 - ticker: 0.0%
 
@@ -35,17 +35,17 @@
 
 ## Sources
 ### Top domains
-- finance.yahoo.com: 100
-- forbes.com: 60
-- zerohedge.com: 48
-- insidermonkey.com: 36
-- abcnews.go.com: 32
-- webpronews.com: 32
-- cnbc.com: 28
-- afghanistansun.com: 24
-- cincinnatisun.com: 24
-- thailandnews.net: 24
-- Unique domains: 155
+- markets.financialcontent.com: 128
+- finance.yahoo.com: 116
+- fool.com: 68
+- finance.sina.com.cn: 60
+- 163.com: 60
+- webpronews.com: 40
+- yicai.com: 36
+- benzinga.com: 36
+- finance.ifeng.com: 32
+- finance.eastmoney.com: 28
+- Unique domains: 140
 
 ## Notes / Caveats
 - GDELT coverage varies by company and time.
