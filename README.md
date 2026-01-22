@@ -96,6 +96,7 @@ This repository is structured to support:
         - missing value handling
     - write outputs to `data/processed/`
 - *Cleaned data may be overwritten, as it can always be regenerated from raw inputs*
+- *Cleaning logic is implemented in standalone scripts under `scripts/clean_*.py` and does not perform ingestion or validation.*
 4. Analysis (Exploratory Only)
   - Conducted in notebooks under `notebooks/`
   - Uses cleaned datasets only
@@ -106,7 +107,7 @@ This repository is structured to support:
 - Each ingestion run pulls data "up to today"
 - Raw outputs are date-stamped
 - Cleaned datasets are regenerated as needed
-- *Incremntal append and automation will be revisited **after validatoin and cleaning logic is finalized***
+- *Incremental append and automation will be revisited **after validatoin and cleaning logic is finalized***
 ---
 
 ## Getting Started
