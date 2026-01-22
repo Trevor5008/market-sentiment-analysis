@@ -48,19 +48,46 @@ gdelt_required_cols = ["url", "title", "seendate", "ticker", "company"]
 
 FINANCIAL_KEYWORDS = [
     # Stock & Trading
-    'stock', 'share', 'shares', 'trading', 'nasdaq', 'nyse',
+    'stock', 'share', 'shares', 'trading', 'trader', 'nasdaq', 'nyse', 
+    's&p', 'dow', 'index', 'etf', 'fund', 'hedge',
+
     # Financial Metrics
-    'earnings', 'revenue', 'profit', 'loss', 'eps', 'guidance',
+    'earnings', 'revenue', 'profit', 'loss', 'margin', 'eps', 
+    'guidance', 'forecast', 'outlook', 'quarter', 'quarterly',
+    'annual', 'fiscal', 'billion', 'million', 'trillion',
+
     # Market Movement
-    'rally', 'surge', 'drop', 'crash', 'plunge', 'gain', 'decline',
-    # Business
-    'ceo', 'dividend', 'acquisition', 'merger', 'ipo',
-    # Tech keywords
-    'ai', 'artificial intelligence', 'cloud', 'semiconductor', 'chip',
-    # MAG7 names (your tickers)
-    'apple', 'microsoft', 'google', 'alphabet', 'amazon', 
-    'meta', 'tesla', 'nvidia',
+    'bull', 'bear', 'rally', 'surge', 'soar', 'jump', 'climb',
+    'drop', 'fall', 'crash', 'plunge', 'sink', 'tumble', 'volatile',
+    'gain', 'rise', 'decline', 'dip',
+
+    # Valuation
+    'valuation', 'market cap', 'price target', 'rating', 'upgrade',
+    'downgrade', 'buy', 'sell', 'hold', 'overweight', 'underweight',
+
+    # Business Operations  
+    'ceo', 'cfo', 'executive', 'board', 'investor', 'shareholder',
+    'dividend', 'buyback', 'acquisition', 'merger', 'deal', 'partnership',
+    'investment', 'ipo', 'stake',
+
+    # Supply Chain & Operations
+    'supplier', 'supply chain', 'manufacture', 'production', 'factory',
+    'chip', 'semiconductor', 'shortage',
+
+    # Tech-Specific
+    'ai', 'artificial intelligence', 'cloud', 'software', 'hardware',
+    'iphone', 'android', 'windows', 'azure', 'aws', 'gpu', 'data center',
+
+    # MAG7 Company Names
+    'apple', 'microsoft', 'google', 'alphabet', 'amazon', 'meta', 
+    'facebook', 'tesla', 'nvidia', 'aapl', 'msft', 'googl', 'amzn', 
+    'tsla', 'nvda',
+
+    # Competition & Industry
+    'competitor', 'rival', 'industry', 'sector', 'antitrust', 'regulation',
+    'ces', 'conference', 'keynote', 'announcement', 'launch', 'unveil',
 ]
+    
 # ============================================================
 # CLEANING FUNCTIONS
 # ============================================================
