@@ -30,7 +30,7 @@ MAG7: Dict[str, str] = {
 
 COMPANY_QUERY_OVERRIDES = {
     "Meta": '("Meta Platforms" OR Facebook OR META) (stock OR shares OR' +
-    'earnings OR revenue)'
+        'earnings OR revenue)'
 }
 
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -121,14 +121,14 @@ def fetch_gdelt_articles(
         if "json" not in ct.lower():
             print(
                 f"[GDELT] Non-JSON response status={resp.status_code} " +
-                "content-type={ct} query={query}")
+                    "content-type={ct} query={query}")
             print(resp.text[:300])
             break
         try:
             data = resp.json()
             if "error" in data:
-                print(f"[GDELT] API error: {
-                      data.get('error')} | query={query}")
+                print("[GDELT] API error: " +
+                    f"{data.get('error')} | query={query}")
                 break
         except ValueError as e:
             print(f"Warning: Failed to parse JSON response: {e}")
@@ -136,8 +136,8 @@ def fetch_gdelt_articles(
 
         articles = data.get("articles") or []
         if not isinstance(articles, list):
-            print(f"[GDELT] Unexpected payload shape (no articles list). Keys: {
-                  list(data.keys())}")
+            print("[GDELT] Unexpected payload shape" +
+                f"(no articles list). Keys: {list(data.keys())}")
             break
         if not articles:
             break
@@ -169,7 +169,8 @@ def fetch_gdelt_articles(
     return df
 
 
-def fetch_prices_daily(tickers: List[str], start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+def fetch_prices_daily(tickers: List[str]
+                       , start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
     # yfinance end date is exclusive; add one day to include end date
     start_str = start_dt.date().isoformat()
     end_str = (end_dt.date() + timedelta(days=1)).isoformat()
@@ -226,8 +227,9 @@ def main() -> None:
     article_frames = []
     for company, ticker in MAG7.items():
         # Query: company name or ticker symbol
-        base_query = f'("{company}" OR {
-            ticker}) (stock OR shares OR earnings OR revenue)'
+        base_query = f"""
+        ("{company}" OR {ticker}) (stock OR shares OR earnings OR revenue)
+        """
         query = COMPANY_QUERY_OVERRIDES.get(company, base_query)
         print(f"[GDELT] Fetching articles for {company} ({ticker}) ...")
 
