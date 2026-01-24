@@ -57,8 +57,9 @@ This repository is structured to support:
 │   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
 │   ├── validate_gdelt.py
-│   ├── validate_ohlcv.py
-│   └── clean_gdelt.py            
+│   ├── ohlcv_validation.py
+│   └── cleaning_gdelt.py
+│    └── ingest_demo.py           
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
