@@ -51,15 +51,14 @@ This repository is structured to support:
 ---
 
 ## Repository Structure
-
 ```text
 ├── data/
-│   ├── raw/            # Immutable raw data (append-only)
-│   └── processed/      # Deterministically cleaned outputs
+│   ├── raw/                    # Immutable raw data (append-only)
+│   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
 │   ├── validate_gdelt.py
 │   ├── validate_ohlcv.py
-│   └── clean_*.py      # (to be added)
+│   └── clean_gdelt.py            
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
@@ -69,7 +68,6 @@ This repository is structured to support:
 │   └── retrospectives/
 ├── README.md
 └── CONTRIBUTING.md
-
 ```
 ## Data Lifecycle
 1. Raw Data (Immutable)
@@ -107,7 +105,7 @@ This repository is structured to support:
 - Each ingestion run pulls data "up to today"
 - Raw outputs are date-stamped
 - Cleaned datasets are regenerated as needed
-- *Incremental append and automation will be revisited **after validatoin and cleaning logic is finalized***
+- *Incremental append and automation will be revisited **after validation and cleaning logic is finalized***
 ---
 
 ## Getting Started
