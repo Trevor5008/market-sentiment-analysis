@@ -59,7 +59,7 @@ This repository is structured to support:
 ├── scripts/
 │   ├── validate_gdelt.py
 │   ├── validate_ohlcv.py
-│   └── clean_*.py      # (to be added)
+│   └── cleaning_gdelt.py
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
