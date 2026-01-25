@@ -123,13 +123,16 @@ This repository is structured to support:
 conda create -n advds python=3.11
 conda activate advds
 
-# Install dependencies
+# Install dependencies using pip (pip works fine in conda environments)
 pip install -r requirements.txt
 ```
 
-**Alternative: Using conda-forge for package installation**
+**Note:** Using `pip` within a conda environment is the recommended approach for this project. Conda environments include pip, and it's safe to use pip to install packages that aren't available via conda.
+
+**Alternative: Hybrid conda-forge + pip approach**
+If you prefer to use conda-forge for packages that are available there:
 ```bash
-# Some packages may be available via conda-forge
+# Install core packages via conda-forge
 conda install -c conda-forge pandas numpy pandas_market_calendars yfinance requests
 # Then install remaining packages via pip
 pip install -r requirements.txt
