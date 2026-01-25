@@ -109,13 +109,15 @@ def to_markdown_report(input_path: Path, schema: dict, stats: dict, exchange: st
 
 def main():
     parser = argparse.ArgumentParser()
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent
     parser.add_argument("--input", default="data/raw/prices_daily.csv")
-    parser.add_argument("--out", default="docs/validation/ohlcv_validation.md")
+    parser.add_argument("--out", default=project_root/"docs"/"validation"/"ohlcv_validation.md")
     parser.add_argument("--exchange", default="NYSE", help="Exchange calendar to use (e.g., NYSE, LSE, JPX)")
     args = parser.parse_args()
 
     input_path = Path(args.input)
-    out_path = Path(args.out)
+    out_path = args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not input_path.exists():

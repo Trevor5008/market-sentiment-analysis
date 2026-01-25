@@ -7,8 +7,8 @@ PROJECT_ROOT="$SCRIPT_DIR/.."
 
 venv_python="$PROJECT_ROOT/.venv/Scripts/python.exe"
 
-#echo "RUNNING ingest_demo.py"
-# "venv_python" "$PROJECT_ROOT/scripts/ingest_demo.py"
+echo "RUNNING ingest_demo.py"
+"$venv_python" "$PROJECT_ROOT/scripts/ingest_demo.py"
 
 if [ ! -f "$PROJECT_ROOT/data/raw/gdelt_articles.csv" ]; then
   echo "Output at data/raw/gdelt_articles.csv was not created"
