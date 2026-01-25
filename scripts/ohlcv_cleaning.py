@@ -23,6 +23,7 @@ import numpy as np
 from pathlib import Path
 import pandas_market_calendars as mcal
 
+
 # ============================================================
 # PATHS
 # ============================================================

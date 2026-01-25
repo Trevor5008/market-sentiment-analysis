@@ -56,17 +56,18 @@ This repository is structured to support:
 │   ├── raw/                    # Immutable raw data (append-only)
 │   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
-│   ├── validate_gdelt.py
-│   ├── ohlcv_validation.py
-│   └── cleaning_gdelt.py
-│    └── ingest_demo.py           
+│   ├── ingest_demo.py          # Data ingestion (GDELT articles + OHLCV prices)
+│   ├── validate_gdelt.py        # GDELT data validation
+│   ├── cleaning_gdelt.py        # GDELT data cleaning
+│   ├── ohlcv_validation.py      # OHLCV price data validation
+│   ├── ohlcv_cleaning.py         # OHLCV price data cleaning
+│   └── run_pipeline.sh           # Full pipeline automation script           
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
 │   ├── validation/
-│   ├── assumptions.md
-│   ├── sprint_minutes/
-│   └── retrospectives/
+│   ├── ingestion_assumptions.md
+│   └── data_snapshot_log.md
 ├── README.md
 └── CONTRIBUTING.md
 ```
@@ -110,46 +111,115 @@ This repository is structured to support:
 ---
 
 ## Getting Started
-1. Create and activate a Python virtual environment
 
 ### Environment Setup
-It is recommended to use a Python virtual environment to isolate dependencies
 
-**Python 3.10+ is recommended**
+**This project requires Anaconda/Conda** - Python 3.11 is recommended.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate # Windows: .venv\Scripts\activate
-pip install --upgrade pip
-```
-
-2. Install dependencies from `requirements.txt`
+**Note:** This project is configured for conda environments. Using virtual environments (venv) may cause conflicts with package management and path resolution.
 
 ```bash
+# Create and activate a conda environment
+conda create -n advds python=3.11
+conda activate advds
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-**If pip is missing from venv, run the following...
-
+**Alternative: Using conda-forge for package installation**
 ```bash
-python -m ensurepip --upgrade
-python -m pip install --upgrade pip
+# Some packages may be available via conda-forge
+conda install -c conda-forge pandas numpy pandas_market_calendars yfinance requests
+# Then install remaining packages via pip
+pip install -r requirements.txt
 ```
 
-3. Run ingestion scripts under `scripts/` to reproduce datasets
+### Running Scripts
 
-Example:
+All scripts use project-root-relative paths and can be run from any directory.
+
+**Note for Linux/macOS users:** The pipeline script (`run_pipeline.sh`) needs to be executable. If you encounter a "Permission denied" error, run:
 ```bash
+chmod +x scripts/run_pipeline.sh
+```
+
+#### Individual Scripts
+```bash
+# Ingest data (GDELT articles + OHLCV prices)
 python scripts/ingest_demo.py
+
+# Validate GDELT data
+python scripts/validate_gdelt.py
+
+# Clean GDELT data
+python scripts/cleaning_gdelt.py
+
+# Validate OHLCV price data
+python scripts/ohlcv_validation.py
+
+# Clean OHLCV price data
+python scripts/ohlcv_cleaning.py
 ```
+
+#### Full Pipeline (Recommended)
+Run the complete validation and cleaning pipeline:
+
+**Linux/macOS:**
+```bash
+# Make the script executable (first time only)
+chmod +x scripts/run_pipeline.sh
+
+# Ensure conda environment is activated
+conda activate advds
+
+# Run the pipeline
+./scripts/run_pipeline.sh
+
+# Or run with bash explicitly
+bash scripts/run_pipeline.sh
+
+# To include data ingestion in the pipeline:
+RUN_INGEST=1 ./scripts/run_pipeline.sh
+```
+
+**Windows:**
+```bash
+# Ensure conda environment is activated
+conda activate advds
+
+# Using Git Bash or WSL
+bash scripts/run_pipeline.sh
+
+# Using WSL (Windows Subsystem for Linux)
+# First, make executable:
+chmod +x scripts/run_pipeline.sh
+# Then run:
+./scripts/run_pipeline.sh
+
+# To include data ingestion:
+RUN_INGEST=1 bash scripts/run_pipeline.sh
+```
+
+**Important:** The pipeline script requires an active conda environment. It will check for `CONDA_PREFIX` and exit with an error if no conda environment is active. The script also validates that required Python packages are installed.
+
+The pipeline script:
+- Validates dependencies are installed
+- Runs validation scripts (generates reports in `docs/validation/`)
+- Runs cleaning scripts (generates cleaned data in `data/processed/`)
+- Verifies all outputs are created successfully
 
 ## Validation Scripts
 
-Each dataset has a dedicated script following a shared structure
-Validation scripts audit data quality and coverage only - they do not mutate
-datasets
+Each dataset has a dedicated validation script following a shared structure:
+- **`validate_gdelt.py`** - Validates GDELT article data
+- **`ohlcv_validation.py`** - Validates OHLCV price data
 
-Outputs written to `docs/validation`
+Validation scripts:
+- Audit data quality and coverage
+- **Do not mutate** datasets
+- Generate markdown reports in `docs/validation/`
+- Can be run from any directory (paths are project-root-relative)
 
 ## Workflow
 This project follows an **Agile sprint-based workflow**:
@@ -162,9 +232,12 @@ Collaboration guidelines and workflow expectations are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Notes
+- **This project requires Anaconda/Conda** - virtual environments (venv) are not supported due to package management conflicts
 - Generated data artifacts are intentionally excluded from version control
 - All results should be reproducible from committed code
 - Assumptions and limitations are documented throughout the project
+- Scripts use project-root-relative paths and work correctly regardless of current working directory
+- The project uses `pandas_market_calendars` for market calendar validation
 
 ---
 

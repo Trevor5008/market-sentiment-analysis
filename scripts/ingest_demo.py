@@ -5,6 +5,7 @@ import time
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 import pandas as pd
@@ -34,6 +35,16 @@ COMPANY_QUERY_OVERRIDES = {
 }
 
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+
+
+def get_project_root() -> Path:
+    """Find project root by locating this script and going up one level."""
+    script_dir = Path(__file__).parent.resolve()
+    # If script is in scripts/, go up one level to project root
+    if script_dir.name == "scripts":
+        return script_dir.parent
+    # Otherwise, assume we're already at project root
+    return script_dir
 
 
 @dataclass
@@ -216,7 +227,9 @@ def fetch_prices_daily(tickers: List[str]
 
 def main() -> None:
     cfg = Config()
-    ensure_dir(cfg.out_dir)
+    project_root = get_project_root()
+    out_dir = (project_root / cfg.out_dir).resolve()
+    ensure_dir(str(out_dir))
 
     end_dt = utc_now()
     start_dt = end_dt - timedelta(days=cfg.days_back)
@@ -248,7 +261,7 @@ def main() -> None:
 
     articles_df = pd.concat(
         article_frames, ignore_index=True) if article_frames else pd.DataFrame()
-    articles_path = os.path.join(cfg.out_dir, "gdelt_articles.csv")
+    articles_path = out_dir / "gdelt_articles.csv"
     articles_df.to_csv(articles_path, index=False)
     print(f"[OK] Wrote {len(articles_df):,} rows -> {articles_path}")
 
@@ -258,7 +271,7 @@ def main() -> None:
     prices_df = fetch_prices_daily(
         tickers=tickers, start_dt=start_dt, end_dt=end_dt)
 
-    prices_path = os.path.join(cfg.out_dir, "prices_daily.csv")
+    prices_path = out_dir / "prices_daily.csv"
     prices_df.to_csv(prices_path, index=False)
     print(f"[OK] Wrote {len(prices_df):,} rows -> {prices_path}")
 

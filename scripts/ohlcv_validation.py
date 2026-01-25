@@ -7,6 +7,15 @@ import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 
+def get_project_root() -> Path:
+    """Find project root by locating this script and going up one level."""
+    script_dir = Path(__file__).parent.resolve()
+    # If script is in scripts/, go up one level to project root
+    if script_dir.name == "scripts":
+        return script_dir.parent
+    # Otherwise, assume we're already at project root
+    return script_dir
+
 REQUIRED_COLS = ["date", "open", "high", "low", "close", "adj_close", "volume", "ticker"]
 NUMERIC_COLS = ["open", "high", "low", "close", "adj_close", "volume"]
 
@@ -114,8 +123,9 @@ def main():
     parser.add_argument("--exchange", default="NYSE", help="Exchange calendar to use (e.g., NYSE, LSE, JPX)")
     args = parser.parse_args()
 
-    input_path = Path(args.input)
-    out_path = Path(args.out)
+    project_root = get_project_root()
+    input_path = (project_root / args.input).resolve()
+    out_path = (project_root / args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not input_path.exists():
