@@ -70,6 +70,7 @@ This repository is structured to support:
 │   ├── validation/
 │   ├── ingestion_assumptions.md
 │   └── data_snapshot_log.md
+├── environment.yml            # Conda environment (advds) - single source of truth for dependencies
 ├── README.md
 └── CONTRIBUTING.md
 ```
@@ -178,25 +179,15 @@ Each data ingestion run generates a manifest file to track metadata for traceabi
 
 **Note:** This project is configured for conda environments. Using virtual environments (venv) may cause conflicts with package management and path resolution.
 
+The repository includes an `environment.yml` file that defines the full environment (conda and pip dependencies) for consistent setup across the team.
+
 ```bash
-# Create and activate a conda environment
-conda create -n advds python=3.11
+# Create and activate the environment from environment.yml
+conda env create -f environment.yml
 conda activate advds
-
-# Install dependencies using pip (pip works fine in conda environments)
-pip install -r requirements.txt
 ```
 
-**Note:** Using `pip` within a conda environment is the recommended approach for this project. Conda environments include pip, and it's safe to use pip to install packages that aren't available via conda.
-
-**Alternative: Hybrid conda-forge + pip approach**
-If you prefer to use conda-forge for packages that are available there:
-```bash
-# Install core packages via conda-forge
-conda install -c conda-forge pandas numpy pandas_market_calendars yfinance requests
-# Then install remaining packages via pip
-pip install -r requirements.txt
-```
+This creates the `advds` environment with Python 3.11 and all required packages. The `environment.yml` is the single source of truth for dependencies; `requirements.txt` is not used.
 
 ### Running Scripts
 
