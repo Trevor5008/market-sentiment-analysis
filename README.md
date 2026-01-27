@@ -58,12 +58,12 @@ This repository is structured to support:
 │   │   └── snapshots/          # Run manifests (gitignored)
 │   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
-│   ├── ingest_demo.py          # Data ingestion (GDELT articles + OHLCV prices)
+│   ├── ingest_demo.py           # Data ingestion (GDELT articles + OHLCV prices)
 │   ├── validate_gdelt.py        # GDELT data validation
 │   ├── cleaning_gdelt.py        # GDELT data cleaning
 │   ├── ohlcv_validation.py      # OHLCV price data validation
-│   ├── ohlcv_cleaning.py         # OHLCV price data cleaning
-│   └── run_pipeline.sh           # Full pipeline automation script           
+│   ├── ohlcv_cleaning.py        # OHLCV price data cleaning
+│   └── run_pipeline.sh          # Full pipeline automation script           
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
