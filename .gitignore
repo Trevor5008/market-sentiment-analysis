@@ -14,7 +14,7 @@ __pycache__/
 # Ignore everything in data dirs (default)
 data/raw/*
 data/processed/*
-docs/validation/*
+data/raw/archive/
 
 # Reports
 reports/*.pdf

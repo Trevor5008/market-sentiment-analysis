@@ -109,7 +109,26 @@ This repository is structured to support:
 - Cleaned datasets are regenerated as needed
 - *Incremental append and automation will be revisited **after validation and cleaning logic is finalized***
 ---
+### Raw Snapshot Naming Convention
 
+To avoid accidental data accumulation and maintain clarity:
+
+**Canonical files** (tracked in git):
+- `data/raw/gdelt_articles.csv`
+- `data/raw/prices_daily.csv`
+
+**Archived snapshots** (local only, not committed):
+- Location: `data/raw/archive/`
+- Format: `{dataset}_{YYYY-MM-DD}.csv`
+- Examples:
+  - `data/raw/archive/gdelt_articles_2026-01-26.csv`
+  - `data/raw/archive/prices_daily_2026-01-26.csv`
+
+**Rules:**
+1. Only canonical files are committed to `main`
+2. Before overwriting a canonical file, move the current version to `archive/` with a date suffix
+3. Archive folder is gitignored to prevent accidental commits
+4. See `docs/data_snapshot_log.md` for snapshot metadata tracking
 ## Getting Started
 
 ### Environment Setup
