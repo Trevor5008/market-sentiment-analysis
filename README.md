@@ -58,7 +58,7 @@ This repository is structured to support:
 │   │   └── snapshots/          # Run manifests (gitignored)
 │   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
-│   ├── ingest_demo.py           # Data ingestion (GDELT articles + OHLCV prices)
+│   ├── data_ingestion.py         # Data ingestion (GDELT articles + OHLCV prices)
 │   ├── validate_gdelt.py        # GDELT data validation
 │   ├── cleaning_gdelt.py        # GDELT data cleaning
 │   ├── ohlcv_validation.py      # OHLCV price data validation
@@ -201,7 +201,7 @@ chmod +x scripts/run_pipeline.sh
 #### Individual Scripts
 ```bash
 # Ingest data (GDELT articles + OHLCV prices)
-python scripts/ingest_demo.py
+python scripts/data_ingestion.py
 
 # Validate GDELT data
 python scripts/validate_gdelt.py
@@ -259,6 +259,8 @@ RUN_INGEST=1 bash scripts/run_pipeline.sh
 
 The pipeline script:
 - Validates dependencies are installed
+- **When `RUN_INGEST=1`:** Runs `data_ingestion.py` (fetches raw data, archives previous canonical files, writes a run manifest to `data/raw/snapshots/run_manifest_YYYY-MM-DD.json`)
+- When ingestion is skipped (`RUN_INGEST=0`, the default), no run manifest is produced; raw files must already exist
 - Runs validation scripts (generates reports in `docs/validation/`)
 - Runs cleaning scripts (generates cleaned data in `data/processed/`)
 - Verifies all outputs are created successfully
