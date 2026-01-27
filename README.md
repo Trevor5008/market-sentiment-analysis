@@ -54,7 +54,7 @@ This repository is structured to support:
 ```text
 ├── data/
 │   ├── raw/                     # Immutable raw data (append-only)
-│        └── archived/           # Date-stamped snapshots (gitignored)             
+│        └── archive/            # Date-stamped snapshots (gitignored)             
 │   └── processed/               # Deterministically cleaned outputs
 ├── scripts/
 │   ├── ingest_demo.py           # Data ingestion (GDELT articles + OHLCV prices)
