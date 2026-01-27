@@ -45,12 +45,24 @@ print("OK: dependencies available.")
 EOF
 
 # ---- Optional: Ingestion step (enable if desired) ----
+# When RUN_INGEST=1, data_ingestion.py runs and writes a run manifest to
+# data/raw/snapshots/run_manifest_YYYY-MM-DD.json
 RUN_INGEST="${RUN_INGEST:-0}"
 if [[ "$RUN_INGEST" == "1" ]]; then
-  echo "RUNNING ingest_demo.py..."
-  python "$PROJECT_ROOT/scripts/ingest_demo.py"
+  echo "RUNNING data_ingestion.py..."
+  python "$PROJECT_ROOT/scripts/data_ingestion.py"
+  # Verify run manifest was created (same date logic as data_ingestion.py)
+  MANIFEST_DIR="$PROJECT_ROOT/data/raw/snapshots"
+  TODAY_UTC=$(python -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%d'))")
+  MANIFEST_FILE="$MANIFEST_DIR/run_manifest_${TODAY_UTC}.json"
+  if [[ -f "$MANIFEST_FILE" ]]; then
+    echo "[OK] Run manifest: $MANIFEST_FILE"
+  else
+    echo "ERROR: Run manifest was not created at $MANIFEST_FILE"
+    exit 1
+  fi
 else
-  echo "Skipping ingestion (set RUN_INGEST=1 to enable)."
+  echo "Skipping ingestion (set RUN_INGEST=1 to enable). No run manifest is produced when ingestion is skipped."
 fi
 
 # ---- Verify raw outputs exist ----

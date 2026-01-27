@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
+import shutil
+import subprocess
 import time
 import random
 from dataclasses import dataclass
@@ -10,6 +13,8 @@ from typing import Dict, List, Any, Optional
 
 import pandas as pd
 import requests
+
+SCRIPT_VERSION = "1.0.0"
 
 try:
     import yfinance as yf
@@ -53,11 +58,38 @@ class Config:
     max_articles_per_company: int = 200
     page_size: int = 50
     out_dir: str = "data/raw"
-    user_agent: str = "market-sentiment-analysis/ingest_demo (capstone)"
+    user_agent: str = "market-sentiment-analysis/data_ingestion (capstone)"
 
 
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
+
+
+def get_git_short_hash(project_root: Path) -> str:
+    """Return short git commit hash, or 'unknown' if not in a repo or git unavailable."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+            timeout=5,
+        )
+        if out.returncode == 0 and out.stdout:
+            return out.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return "unknown"
+
+
+def archive_if_exists(path: Path, archive_dir: Path, date_str: str, dataset_name: str) -> None:
+    """If path exists, move it to archive_dir as {dataset_name}_{date_str}.csv."""
+    if not path.exists():
+        return
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = archive_dir / f"{dataset_name}_{date_str}.csv"
+    shutil.move(str(path), str(archive_path))
+    print(f"[Archive] Moved {path.name} -> archive/{archive_path.name}")
 
 
 def utc_now() -> datetime:
@@ -230,9 +262,12 @@ def main() -> None:
     project_root = get_project_root()
     out_dir = (project_root / cfg.out_dir).resolve()
     ensure_dir(str(out_dir))
+    archive_dir = out_dir / "archive"
+    snapshots_dir = out_dir / "snapshots"
 
     end_dt = utc_now()
     start_dt = end_dt - timedelta(days=cfg.days_back)
+    date_str = end_dt.strftime("%Y-%m-%d")
 
     headers = {"User-Agent": cfg.user_agent}
 
@@ -262,6 +297,7 @@ def main() -> None:
     articles_df = pd.concat(
         article_frames, ignore_index=True) if article_frames else pd.DataFrame()
     articles_path = out_dir / "gdelt_articles.csv"
+    archive_if_exists(articles_path, archive_dir, date_str, "gdelt_articles")
     articles_df.to_csv(articles_path, index=False)
     print(f"[OK] Wrote {len(articles_df):,} rows -> {articles_path}")
 
@@ -272,8 +308,27 @@ def main() -> None:
         tickers=tickers, start_dt=start_dt, end_dt=end_dt)
 
     prices_path = out_dir / "prices_daily.csv"
+    archive_if_exists(prices_path, archive_dir, date_str, "prices_daily")
     prices_df.to_csv(prices_path, index=False)
     print(f"[OK] Wrote {len(prices_df):,} rows -> {prices_path}")
+
+    # --- Run manifest ---
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = snapshots_dir / f"run_manifest_{date_str}.json"
+    manifest = {
+        "timestamp": end_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "tickers_covered": tickers,
+        "row_counts": {
+            "gdelt_articles": int(len(articles_df)),
+            "prices_daily": int(len(prices_df)),
+        },
+        "script_version": SCRIPT_VERSION,
+        "git_commit": get_git_short_hash(project_root),
+        "notes": "",
+    }
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    print(f"[OK] Wrote run manifest -> {manifest_path}")
 
     # --- Demo-friendly summary ---
     if not articles_df.empty and "ticker" in articles_df.columns:
