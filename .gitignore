@@ -15,6 +15,7 @@ __pycache__/
 data/raw/*
 data/processed/*
 data/raw/archive/
+data/raw/snapshots/
 
 # Reports
 reports/*.pdf

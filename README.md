@@ -54,6 +54,8 @@ This repository is structured to support:
 ```text
 ├── data/
 │   ├── raw/                    # Immutable raw data (append-only)
+│   │   ├── archive/            # Date-stamped snapshots (gitignored)
+│   │   └── snapshots/          # Run manifests (gitignored)
 │   └── processed/              # Deterministically cleaned outputs
 ├── scripts/
 │   ├── ingest_demo.py          # Data ingestion (GDELT articles + OHLCV prices)
@@ -129,6 +131,45 @@ To avoid accidental data accumulation and maintain clarity:
 2. Before overwriting a canonical file, move the current version to `archive/` with a date suffix
 3. Archive folder is gitignored to prevent accidental commits
 4. See `docs/data_snapshot_log.md` for snapshot metadata tracking
+
+### Run Manifests
+
+Each data ingestion run generates a manifest file to track metadata for traceability and debugging.
+
+**Location:** `data/raw/snapshots/run_manifest_YYYY-MM-DD.json`
+
+**Schema:** See [`docs/manifest_schema.json`](docs/manifest_schema.json)
+
+**Fields:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `timestamp` | string | Yes | ISO 8601 datetime of the run |
+| `tickers_covered` | array | Yes | List of ticker symbols included |
+| `row_counts` | object | Yes | Row counts keyed by dataset name |
+| `script_version` | string | No | Version of ingestion script |
+| `git_commit` | string | Yes | Short git commit hash |
+| `notes` | string | No | Optional free-text notes |
+
+**Example:**
+```json
+{
+  "timestamp": "2026-01-26T14:32:00Z",
+  "tickers_covered": ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA"],
+  "row_counts": {
+    "gdelt_articles": 1400,
+    "prices_daily": 133
+  },
+  "script_version": "1.0.0",
+  "git_commit": "cc6c3b4",
+  "notes": ""
+}
+```
+
+**Notes:**
+- Manifest files are gitignored (local only)
+- Generated during manual or automated ingestion runs
+- Used for debugging and audit trails
+---
 ## Getting Started
 
 ### Environment Setup

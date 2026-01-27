@@ -1,0 +1,32 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["timestamp", "tickers_covered", "row_counts", "git_commit"],
+    "properties": {
+      "timestamp": {
+        "type": "string",
+        "description": "ISO 8601 datetime of the run"
+      },
+      "tickers_covered": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of ticker symbols"
+      },
+      "row_counts": {
+        "type": "object",
+        "description": "Row counts keyed by dataset name"
+      },
+      "script_version": {
+        "type": "string",
+        "description": "Version of the ingestion script"
+      },
+      "git_commit": {
+        "type": "string",
+        "description": "Short git commit hash"
+      },
+      "notes": {
+        "type": "string",
+        "description": "Optional notes"
+      }
+    }
+  }
