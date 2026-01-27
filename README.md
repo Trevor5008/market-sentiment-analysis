@@ -53,8 +53,9 @@ This repository is structured to support:
 ## Repository Structure
 ```text
 ├── data/
-│   ├── raw/                    # Immutable raw data (append-only)
-│   └── processed/              # Deterministically cleaned outputs
+│   ├── raw/                     # Immutable raw data (append-only)
+│        └── archived/           # Date-stamped snapshots (gitignored)             
+│   └── processed/               # Deterministically cleaned outputs
 ├── scripts/
 │   ├── ingest_demo.py          # Data ingestion (GDELT articles + OHLCV prices)
 │   ├── validate_gdelt.py        # GDELT data validation
