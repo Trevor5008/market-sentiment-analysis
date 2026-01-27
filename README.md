@@ -54,15 +54,15 @@ This repository is structured to support:
 ```text
 ├── data/
 │   ├── raw/                     # Immutable raw data (append-only)
-│        └── archive/           # Date-stamped snapshots (gitignored)             
+│        └── archived/           # Date-stamped snapshots (gitignored)             
 │   └── processed/               # Deterministically cleaned outputs
 ├── scripts/
-│   ├── ingest_demo.py          # Data ingestion (GDELT articles + OHLCV prices)
+│   ├── ingest_demo.py           # Data ingestion (GDELT articles + OHLCV prices)
 │   ├── validate_gdelt.py        # GDELT data validation
 │   ├── cleaning_gdelt.py        # GDELT data cleaning
 │   ├── ohlcv_validation.py      # OHLCV price data validation
-│   ├── ohlcv_cleaning.py         # OHLCV price data cleaning
-│   └── run_pipeline.sh           # Full pipeline automation script           
+│   ├── ohlcv_cleaning.py        # OHLCV price data cleaning
+│   └── run_pipeline.sh          # Full pipeline automation script           
 ├── notebooks/
 │   └── exploratory/
 ├── docs/
