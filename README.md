@@ -87,7 +87,7 @@ This repository is structured to support:
     - **Do not** modify raw files
 - Outputs:
     - console summaries
-    - optional markdown/csv reports under `docs/validation/`
+    - optional markdown/csv reports under `docs/validation/` (local artifacts, gitignored; regenerate by running validation scripts)
 3. Cleaning (Deterministic Mutation)
 - Cleaning scripts:
     - operate only on **validated raw data**
