@@ -14,8 +14,11 @@ __pycache__/
 # Ignore everything in data dirs (default)
 data/raw/*
 data/processed/*
-data/raw/archive/
-data/raw/snapshots/
+data/raw/archive/*
+data/raw/snapshots/*
+
+# Validation reports (local artifacts; regenerate by running validation scripts)
+docs/validation/*
 
 # Reports
 reports/*.pdf
