@@ -95,6 +95,12 @@ if [[ ! -f "$PROJECT_ROOT/data/processed/gdelt_articles_clean.csv" ]]; then
 fi
 
 echo "GDELT complete."
+echo "Accumulating GDELT..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/accumulate.py" \
+  --new "$PROJECT_ROOT/data/processed/gdelt_articles_clean.csv" \
+  --dest "$PROJECT_ROOT/data/processed/gdelt_articles_accumulated.csv" \
+  --manifest "$PROJECT_ROOT/data/processed/gdelt_manifest.json" \
+  --key "url"
 
 # ---- OHLCV validate + clean ----
 echo
@@ -116,6 +122,13 @@ if [[ ! -f "$PROJECT_ROOT/data/processed/prices_daily_clean.csv" ]]; then
 fi
 
 echo "OHLCV complete."
+echo "Accumulating OHLCV..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/accumulate.py" \
+  --new "$PROJECT_ROOT/data/processed/prices_daily_clean.csv" \
+  --dest "$PROJECT_ROOT/data/processed/prices_daily_accumulated.csv" \
+  --manifest "$PROJECT_ROOT/data/processed/ohlcv_manifest.json" \
+  --key "date,ticker"
+
 
 echo
 echo "============================================================"
