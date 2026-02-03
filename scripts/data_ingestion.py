@@ -22,7 +22,6 @@ except ImportError as e:
     raise SystemExit(
         "Missing dependency: yfinance. Install via `pip install yfinance`.") from e
 
-
 # --- Configurable constants ---
 MAG7: Dict[str, str] = {
     "Apple": "AAPL",

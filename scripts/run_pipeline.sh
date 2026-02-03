@@ -44,10 +44,9 @@ if missing:
 print("OK: dependencies available.")
 EOF
 
-# ---- Optional: Ingestion step (enable if desired) ----
 # When RUN_INGEST=1, data_ingestion.py runs and writes a run manifest to
 # data/raw/snapshots/run_manifest_YYYY-MM-DD.json
-RUN_INGEST="${RUN_INGEST:-0}"
+RUN_INGEST="${RUN_INGEST:-0}" # REQUIRED for accumulation component (dependency)
 if [[ "$RUN_INGEST" == "1" ]]; then
   echo "RUNNING data_ingestion.py..."
   python "$PROJECT_ROOT/scripts/data_ingestion.py"
