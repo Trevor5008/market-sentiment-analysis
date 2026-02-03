@@ -76,9 +76,13 @@ Same-day returns also do **not** support “Friday rise, Monday drop”: on aver
 
 ### Follow-up Questions:
 - "Is aggregated weekend news sentiment positively correlated with Monday close-close returns across MAG7?"
-- "Does high headline volume + mild positive sentiment matter more than low volume w/ bullish (strong) positivity?
+- "Does high headline volume + mild positive sentiment matter more than low volume w/ bullish (strong) positivity?"
 
 #### Next Steps
+- Explicitly set start date for gdelt data ingestion (currently cutting off at 1/27 due to 200 articles cap)
+- Price data is not yet capable of mapping directly to news coverage due to the different ranges
+
+Once resolved...
 - Lexicon-based sentiment (VADER, TextBlob, AFINN?) -> Polarity score
 - % positive headlines (over the weekend)
 - Net sentiment
