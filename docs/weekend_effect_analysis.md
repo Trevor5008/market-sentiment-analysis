@@ -73,3 +73,12 @@ Same-day returns also do **not** support “Friday rise, Monday drop”: on aver
 - **Same-day:** Fridays are slightly negative and Mondays positive on average; again opposite to the assumed pattern.
 - **By ticker:** Mixed. Three names (MSFT, NVDA, TSLA) show Friday &gt; Monday; four (AAPL, AMZN, GOOGL, META) show Monday &gt; Friday.
 - **Caveat:** Short history and small counts per weekday; results are suggestive only. Re-run the notebook after new ingestions to refresh these numbers.
+
+### Follow-up Questions:
+- "Is aggregated weekend news sentiment positively correlated with Monday close-close returns across MAG7?"
+- "Does high headline volume + mild positive sentiment matter more than low volume w/ bullish (strong) positivity?
+
+#### Next Steps
+- Lexicon-based sentiment (VADER, TextBlob, AFINN?) -> Polarity score
+- % positive headlines (over the weekend)
+- Net sentiment
