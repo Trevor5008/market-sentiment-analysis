@@ -17,6 +17,47 @@ docs/
         ├── price_distribution.md
         └── notes.md
 ```
+### How to Approach EDA (Suggested Sequence)
+
+EDA is not a one-time phase or checklist. It is an **iterative** process of
+inquiry. The steps below describe a **typical sequence**, not a strict
+requirement.
+
+1. Structural Understanding
+    - Dataset shape, time span, column roles
+    - Missingness, duplication, coverage
+
+2. Univariate Exploration
+    - Distributions, skew, outliers
+    - Counts and basic summaries
+
+3. Relationship Exploration
+    - Simple bivariate relationships
+    - Scatter plots, correlations (when appropriate)
+
+4. Contextualization
+    - Time-based behavior
+    - Grouping, segmentation, regime changes
+
+5. Assumption Testing
+    - Identify assumptions implicit in the data
+    - Look for counterexamples or breakdowns
+
+The goal is **progressive understanding** to iteratively ask better questions,
+not completion.
+
+### Prompts for Exploration
+
+EDA Contributions are evaluated based on **insight**, not lines of code.
+Use these prompts as needed: 
+
+- What assumptions are you starting with?
+- What surprised you about the data?
+- What pattern appears weaker or stronger than expected?
+- Does a relationship change over time or across subsets?
+
+Visualizations and statistics are tools to support the process of asking
+**better questions** based on an improved understanding.
 
 ### Scope of EDA
 - Understand distributions, coverage and basic relationships

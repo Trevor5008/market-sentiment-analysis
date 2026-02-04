@@ -44,10 +44,9 @@ if missing:
 print("OK: dependencies available.")
 EOF
 
-# ---- Optional: Ingestion step (enable if desired) ----
 # When RUN_INGEST=1, data_ingestion.py runs and writes a run manifest to
 # data/raw/snapshots/run_manifest_YYYY-MM-DD.json
-RUN_INGEST="${RUN_INGEST:-0}"
+RUN_INGEST="${RUN_INGEST:-0}" # REQUIRED for accumulation component (dependency)
 if [[ "$RUN_INGEST" == "1" ]]; then
   echo "RUNNING data_ingestion.py..."
   python "$PROJECT_ROOT/scripts/data_ingestion.py"
@@ -63,6 +62,14 @@ if [[ "$RUN_INGEST" == "1" ]]; then
   fi
 else
   echo "Skipping ingestion (set RUN_INGEST=1 to enable). No run manifest is produced when ingestion is skipped."
+  echo "  → Raw data will not be refreshed; output date range will not extend past the last ingestion run."
+  MANIFEST_DIR="$PROJECT_ROOT/data/raw/snapshots"
+  if [[ -d "$MANIFEST_DIR" ]]; then
+    LATEST_MANIFEST=$(ls -t "$MANIFEST_DIR"/run_manifest_*.json 2>/dev/null | head -1)
+    if [[ -n "$LATEST_MANIFEST" && -f "$LATEST_MANIFEST" ]]; then
+      echo "  → Last ingestion (from manifest): $(python -c "import json; print(json.load(open('$LATEST_MANIFEST')).get('timestamp', 'unknown')[:10])" 2>/dev/null || echo "unknown")"
+    fi
+  fi
 fi
 
 # ---- Verify raw outputs exist ----

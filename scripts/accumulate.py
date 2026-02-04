@@ -2,7 +2,7 @@
 import argparse
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd
 
 def main():
@@ -50,7 +50,7 @@ def main():
         'rows_new': rows_new,
         'rows_after': rows_after,
         'runs': m.get('accumulation', {}).get('runs', 0) + 1,
-        'last_run': datetime.now(datetime.timezone.utc).isoformat()
+        'last_run': datetime.now(timezone.utc).isoformat()
     }
     with open(args.manifest, 'w') as f:
         json.dump(m, f, indent=2)
