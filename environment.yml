@@ -2,25 +2,35 @@ name: advds
 channels:
   - conda-forge
   - defaults
-
 dependencies:
   - python=3.11
   - pandas
   - numpy
   - matplotlib
   - seaborn
-  - scipy
   - scikit-learn
+  - scipy
   - statsmodels
-  - plotly
-  - jupyterlab
   - ipykernel
+  - ipython
+  - nbformat
+  - nbconvert
   - notebook
+  - jupyterlab
+  - plotly
+  - streamlit
+  - geopandas
+  - shapely
+  - fiona
   - pyarrow
   - requests
+  - beautifulsoup4
   - pyyaml
+  - pillow
+  - watchdog
   - pip
   - pip:
       - yfinance
       - pandas-market-calendars
       - exchange-calendars
+      - curl-cffi
