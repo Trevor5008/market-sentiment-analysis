@@ -8,6 +8,10 @@ The goal is to ensure downstream analysis remains **exploratory**, **non-causal*
 
 ## Data Source Assumptions
 
+### News and Price Alignment
+- Downstream news–price analysis assumes temporal alignment: same date window for news and prices, with news coverage preceding price moves where causality is considered.
+- **Current limitation:** GDELT article dates are skewed to the recent end of the requested window (sort=datedesc + 200-article cap per company in `data_ingestion.py`), so effective news coverage often starts later (e.g. ~1/27) while price data extends to the first trading day in the window (e.g. 12/29). Analyses that map news to price by date therefore have a shorter overlapping range. See `docs/gdelt_vs_prices_date_range_origin.md` for the origin and resolution options.
+
 ### Uneven News Coverage
 - GDELT does not guarantee equal news coverage across companies, dates, or regions.
 - Certain companies may appear more frequently due to external events or media attention.

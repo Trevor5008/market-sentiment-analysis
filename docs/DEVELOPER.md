@@ -11,6 +11,7 @@ Technical documentation for developers working on the Market Sentiment Analysis 
 - [Code Style & Standards](#code-style--standards)
 - [Common Tasks](#common-tasks)
 - [Troubleshooting](#troubleshooting)
+- [API Reference](#api-reference)
 
 ---
 
@@ -270,6 +271,26 @@ conda install -c conda-forge pandas_market_calendars
 Scripts must resolve paths from the **project root**, not the current working directory.
 
 **Fix:** Use a `get_project_root()` helper (see `data_ingestion.py` or `validate_gdelt.py`) and build all paths from that root (e.g. `root / "data" / "raw"`).
+
+---
+
+## API Reference
+
+### GDELT Doc 2.0 API
+
+News article search and metadata used by `data_ingestion.py` for GDELT article fetches.
+
+- **Official documentation:** [GDELT Doc 2.0 API Debuts](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/) (GDELT Project Blog)
+
+**Relevant details for this project:**
+
+- **Base URL:** `https://api.gdeltproject.org/api/v2/doc/doc`
+- **Date range:** The API searches a **rolling window of the last 3 months** of coverage. You can use `STARTDATETIME` / `ENDDATETIME` (format `YYYYMMDDHHMMSS`) to specify a window within the last 3 months, or `TIMESPAN` (e.g. `1week`, `5d`, `12h`) for an offset from the present.
+- **Modes:** We use `mode=artlist` for article lists. Other modes include timelines, tone charts, and image collages.
+- **Sort:** `sort=datedesc` (newest first) or `dateasc` (oldest first). Our ingestion uses `datedesc` and caps at `max_articles_per_company`, so returned articles are skewed to the recent end of the requested window—see [docs/gdelt_vs_prices_date_range_origin.md](gdelt_vs_prices_date_range_origin.md).
+- **Limits:** `MAXRECORDS` (default 75, max 250 per request) controls how many results are returned per request; we paginate via `startrecord`.
+
+Query syntax (exact phrases, OR, domain, tone, etc.) and full parameter list are in the official post above.
 
 ---
 

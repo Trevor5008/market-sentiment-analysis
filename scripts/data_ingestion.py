@@ -22,7 +22,6 @@ except ImportError as e:
     raise SystemExit(
         "Missing dependency: yfinance. Install via `pip install yfinance`.") from e
 
-
 # --- Configurable constants ---
 MAG7: Dict[str, str] = {
     "Apple": "AAPL",
@@ -269,6 +268,7 @@ def main() -> None:
     start_dt = end_dt - timedelta(days=cfg.days_back)
     date_str = end_dt.strftime("%Y-%m-%d")
 
+    print(f"[Ingestion] Requested date range: {start_dt.date().isoformat()} to {end_dt.date().isoformat()} (UTC)")
     headers = {"User-Agent": cfg.user_agent}
 
     # --- Fetch news ---
@@ -317,6 +317,10 @@ def main() -> None:
     manifest_path = snapshots_dir / f"run_manifest_{date_str}.json"
     manifest = {
         "timestamp": end_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "requested_range": {
+            "start_date": start_dt.date().isoformat(),
+            "end_date": end_dt.date().isoformat(),
+        },
         "tickers_covered": tickers,
         "row_counts": {
             "gdelt_articles": int(len(articles_df)),
