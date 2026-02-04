@@ -107,7 +107,8 @@ echo "Accumulating GDELT..."
   --new "$PROJECT_ROOT/data/processed/gdelt_articles_clean.csv" \
   --dest "$PROJECT_ROOT/data/processed/gdelt_articles_accumulated.csv" \
   --manifest "$PROJECT_ROOT/data/processed/gdelt_manifest.json" \
-  --key "url"
+  --key "url" \
+  --sort "seendate,ticker"
 
 # ---- OHLCV validate + clean ----
 echo
@@ -134,7 +135,8 @@ echo "Accumulating OHLCV..."
   --new "$PROJECT_ROOT/data/processed/prices_daily_clean.csv" \
   --dest "$PROJECT_ROOT/data/processed/prices_daily_accumulated.csv" \
   --manifest "$PROJECT_ROOT/data/processed/ohlcv_manifest.json" \
-  --key "date,ticker"
+  --key "date,ticker" \
+  --sort "date,ticker"
 
 
 echo

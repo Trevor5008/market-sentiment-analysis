@@ -54,8 +54,8 @@ def get_project_root() -> Path:
 @dataclass
 class Config:
     days_back: int = 30
-    max_articles_per_company: int = 200
-    page_size: int = 50
+    max_articles_per_company: int = 2000  # Per company: dateasc + datedesc passes; after headline dedupe in cleaning, unique stories span window
+    page_size: int = 250  # GDELT API max per request
     out_dir: str = "data/raw"
     user_agent: str = "market-sentiment-analysis/data_ingestion (capstone)"
 
@@ -138,12 +138,15 @@ def fetch_gdelt_articles(
     page_size: int,
     max_articles: int,
     headers: Dict[str, str],
+    sort_order: str = "datedesc",
 ) -> pd.DataFrame:
+    """Fetch GDELT articles in the given window. sort_order 'dateasc' = oldest first, 'datedesc' = newest first."""
     start_str = to_gdelt_dt(start_dt)
     end_str = to_gdelt_dt(end_dt)
 
     rows: List[Dict[str, Any]] = []
     start_record = 1  # GDELT uses 1-indexed startrecord
+    sort_param = "dateasc" if sort_order == "dateasc" else "datedesc"
 
     while len(rows) < max_articles:
         params = {
@@ -154,7 +157,7 @@ def fetch_gdelt_articles(
             "enddatetime": end_str,
             "maxrecords": str(page_size),
             "startrecord": str(start_record),
-            "sort": "datedesc",
+            "sort": sort_param,
         }
 
         resp = request_with_backoff(
@@ -198,6 +201,18 @@ def fetch_gdelt_articles(
                     "socialimage": a.get("socialimage"),
                 }
             )
+
+        # Early stop: datedesc => stop when we have articles back to start_dt; dateasc => stop when we reach end_dt
+        if rows:
+            try:
+                parsed = [pd.Timestamp(r["seendate"], tz="UTC") for r in rows if r.get("seendate")]
+                if parsed:
+                    if sort_param == "datedesc" and min(parsed) <= start_dt:
+                        break
+                    if sort_param == "dateasc" and max(parsed) >= end_dt:
+                        break
+            except (TypeError, ValueError):
+                pass
 
         start_record += page_size
         time.sleep(0.2)  # polite pacing
@@ -272,24 +287,37 @@ def main() -> None:
     headers = {"User-Agent": cfg.user_agent}
 
     # --- Fetch news ---
+    # Two-phase fetch: dateasc pulls from start_dt (match OHLCV range); datedesc pulls newest; merge and dedupe by URL
+    per_pass = max(1, cfg.max_articles_per_company // 2)
     article_frames = []
     for company, ticker in MAG7.items():
-        # Query: company name or ticker symbol
         base_query = f"""
         ("{company}" OR {ticker}) (stock OR shares OR earnings OR revenue)
         """
         query = COMPANY_QUERY_OVERRIDES.get(company, base_query)
-        print(f"[GDELT] Fetching articles for {company} ({ticker}) ...")
+        print(f"[GDELT] Fetching articles for {company} ({ticker}) [oldest then newest] ...")
 
-        df = fetch_gdelt_articles(
+        df_old = fetch_gdelt_articles(
             query=query,
             start_dt=start_dt,
             end_dt=end_dt,
             page_size=cfg.page_size,
-            max_articles=cfg.max_articles_per_company,
+            max_articles=per_pass,
             headers=headers,
+            sort_order="dateasc",
         )
-
+        df_new = fetch_gdelt_articles(
+            query=query,
+            start_dt=start_dt,
+            end_dt=end_dt,
+            page_size=cfg.page_size,
+            max_articles=per_pass,
+            headers=headers,
+            sort_order="datedesc",
+        )
+        df = pd.concat([df_old, df_new], ignore_index=True)
+        if not df.empty and "url" in df.columns:
+            df = df.drop_duplicates(subset=["url"], keep="last").reset_index(drop=True)
         df["company"] = company
         df["ticker"] = ticker
         article_frames.append(df)

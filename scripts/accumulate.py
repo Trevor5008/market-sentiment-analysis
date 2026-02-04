@@ -11,6 +11,7 @@ def main():
     p.add_argument('--dest', required=True, help='Accumulated CSV')
     p.add_argument('--manifest', required=True, help='Manifest JSON')
     p.add_argument('--key', default='', help='Dedupe key columns')
+    p.add_argument('--sort', default='', help='Comma-separated columns to sort by before writing (e.g. seendate,ticker or date,ticker)')
     args = p.parse_args()
     
     if not os.path.exists(args.new):
@@ -35,6 +36,12 @@ def main():
         df_out = df_combined.drop_duplicates(keep='last')
         
     rows_after = len(df_out)
+    # Sort by date (and ticker) so accumulated file is in chronological order
+    if args.sort:
+        sort_cols = [c.strip() for c in args.sort.split(',') if c.strip()]
+        sort_cols = [c for c in sort_cols if c in df_out.columns]
+        if sort_cols:
+            df_out = df_out.sort_values(sort_cols).reset_index(drop=True)
     # Save accumulated CSV
     os.makedirs(os.path.dirname(args.dest) or '.', exist_ok=True)
     df_out.to_csv(args.dest, index=False)

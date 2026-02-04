@@ -13,9 +13,10 @@ Philosophy:
 Cleaning Steps (GDELT):
 1. Drop columns with 100% missing (description, sourceCountry, query)
 2. Deduplicate by URL (keep latest by seendate)
-3. Filter to English only
-4. Filter to relevant articles (financial keywords)
-5. Handle missing values
+3. Deduplicate by normalized headline per ticker (same story, different outlets → one row; keep latest by seendate)
+4. Filter to English only
+5. Filter to relevant articles (financial keywords)
+6. Handle missing values
 
 Usage:
     python scripts/cleaning_data.py
@@ -27,8 +28,6 @@ import os
 import re
 import pandas as pd
 import numpy as np
-from this import d
-
 from pathlib import Path
 
 # ============================================================
@@ -98,15 +97,35 @@ def drop_columns(df:pd.DataFrame, cols: list[str]) -> pd.DataFrame:
         df = df.drop(columns=existing)
         print(f" dropped columns: {existing}")
     return df
-def deduplicate(df: pd.DataFrame, subset: list[str], date_col: str="seendate") -> pd.DataFrame:
+def deduplicate(df: pd.DataFrame, subset: list[str], date_col: str = "seendate") -> pd.DataFrame:
     df = df.copy()
     before = len(df)
-
     df = df.sort_values(date_col)
     df = df.drop_duplicates(subset=subset, keep="last")
-    removed = removed = before - len(df)
-    print(f"Removed {removed:,} duplicates (by{subset})")
+    removed = before - len(df)
+    print(f"  Removed {removed:,} duplicates (by {subset})")
+    return df
 
+
+def normalize_title(title: str) -> str:
+    """Lowercase, strip, collapse whitespace for headline dedupe."""
+    if pd.isna(title):
+        return ""
+    return " ".join(str(title).lower().strip().split())
+
+
+def deduplicate_by_headline(df: pd.DataFrame, title_col: str = "title", date_col: str = "seendate", key_col: str = "ticker") -> pd.DataFrame:
+    """Keep one article per distinct (normalized headline, ticker); same story from different outlets → one row (keep latest by seendate)."""
+    df = df.copy()
+    before = len(df)
+    if title_col not in df.columns or key_col not in df.columns:
+        return df
+    df["_norm_title"] = df[title_col].apply(normalize_title)
+    df = df.sort_values(date_col)
+    df = df.drop_duplicates(subset=["_norm_title", key_col], keep="last")
+    df = df.drop(columns=["_norm_title"])
+    removed = before - len(df)
+    print(f"  Removed {removed:,} duplicate headlines (same story, different outlets)")
     return df
 def filter_lang(df: pd.DataFrame, lang: str = "English") -> pd.DataFrame:
     df = df.copy()
@@ -162,23 +181,24 @@ def clean_pipeline(df: pd.DataFrame) -> pd.DataFrame:
     print(f"{'='*50}")
     print(f"Input: {len(df):,} rows")
 
-    print("\n[1/5] Dropping unused columns...")
+    print("\n[1/6] Dropping unused columns...")
     df = drop_columns(df, gdelt_drop_cols)
 
-    print("\n[2/5] Removing duplicates...")
+    print("\n[2/6] Removing duplicates by URL...")
     df = deduplicate(df, subset=gdelt_dedupe_cols)
 
-    print("\n[3/5] Filtering to English...")
+    print("\n[3/6] Removing duplicate headlines (same story, different outlets)...")
+    df = deduplicate_by_headline(df, title_col="title", date_col="seendate", key_col="ticker")
+
+    print("\n[4/6] Filtering to English...")
     df = filter_lang(df)
-    
-    # Step 4
-    print("\n[4/5] Filtering to relevant articles...")
+
+    print("\n[5/6] Filtering to relevant articles...")
     df = filter_relevance(df)
-    
-    # Step 5
-    print("\n[5/5] Dropping missing required fields...")
+
+    print("\n[6/6] Dropping missing required fields...")
     df = drop_missing_required(df, gdelt_required_cols)
-    
+
     print(f"\n{'='*50}")
     print(f"Output: {len(df):,} rows")
     return df.reset_index(drop=True)
