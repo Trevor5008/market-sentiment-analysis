@@ -30,8 +30,10 @@ market-sentiment-analysis/
 │   └── processed/              # Cleaned + accumulated outputs
 │       ├── gdelt_articles_clean.csv
 │       ├── gdelt_articles_accumulated.csv
+│       ├── gdelt_articles_with_sentiment.csv
 │       ├── prices_daily_clean.csv
 │       ├── prices_daily_accumulated.csv
+│       ├── gdelt_ohlcv_join.csv   # GDELT–OHLCV join (news t → prices t+1)
 │       └── *_manifest.json    # Accumulation manifests (gitignored)
 ├── scripts/
 │   ├── data_ingestion.py       # Fetch GDELT + OHLCV; archive previous; write run manifest
@@ -81,6 +83,7 @@ market-sentiment-analysis/
 | `ohlcv_validation.py` | Validate OHLCV schema, trading days, outliers; report only | `docs/validation/ohlcv_validation.md` |
 | `ohlcv_cleaning.py` | Normalize types, apply market calendar, fix logical prices, interpolate; overwrites output | `data/processed/prices_daily_clean.csv` |
 | `accumulate.py` | Merge new cleaned snapshot + existing accumulated; dedupe by key; sort by date; write manifest | `data/processed/gdelt_articles_accumulated.csv`, `prices_daily_accumulated.csv`, `*_manifest.json` |
+| `build_gdelt_ohlcv_join.py` | Join GDELT articles to OHLCV by next trading day (news day t → prices day t+1); NYSE calendar, weekends/holidays respected | `data/processed/gdelt_ohlcv_join.csv` |
 | `run_pipeline.sh` | Run validation → cleaning → accumulation; optionally run ingestion when `RUN_INGEST=1` | Depends on steps run |
 
 ### Important conventions
@@ -104,6 +107,17 @@ market-sentiment-analysis/
 
 3. **Cleaning** (overwrites): `cleaning_gdelt.py`, `ohlcv_cleaning.py`  
    Read raw inputs → apply deterministic cleaning → overwrite `data/processed/*.csv`.
+
+### GDELT–OHLCV join table (team analysis)
+
+For analysis linking news to price moves, use **news on day t → prices on day t+1** (next trading day). The script `build_gdelt_ohlcv_join.py`:
+
+- **Inputs**: `gdelt_articles_with_sentiment.csv` (or accumulated), `prices_daily_accumulated.csv`
+- **Logic**: Article date from `seendate` → *next trading day* via NYSE calendar (weekends and holidays skipped; e.g. Fri/Sat/Sun → Monday).
+- **Output**: `data/processed/gdelt_ohlcv_join.csv` — one row per article with all GDELT columns plus `article_date`, `price_date`, and OHLCV columns prefixed with `next_` (e.g. `next_open`, `next_close`, `next_volume`).
+- **Usage**: `python scripts/build_gdelt_ohlcv_join.py` (optional `--gdelt`, `--ohlcv`, `--output`, `--exchange`).
+
+Join key is `(price_date, ticker)`; articles with no next trading day in the price range are dropped.
 
 ### Tracked vs local artifacts
 
