@@ -62,10 +62,10 @@ market-sentiment-analysis/
 │   └── processed/             # Cleaned + accumulated outputs
 │       ├── gdelt_articles_clean.csv
 │       ├── gdelt_articles_accumulated.csv
-│       ├── gdelt_articles_with_sentiment.csv   # After add_sentiment / dedupe_and_sentiment
+│       ├── gdelt_articles_with_sentiment.csv   # Produced by pipeline (add_sentiment + dedupe_and_sentiment)
 │       ├── prices_daily_clean.csv
 │       ├── prices_daily_accumulated.csv
-│       └── gdelt_ohlcv_join.csv               # After build_gdelt_ohlcv_join.py (for price–news analysis)
+│       └── gdelt_ohlcv_join.csv               # Optional: run build_gdelt_ohlcv_join.py (separate from pipeline)
 ├── scripts/
 │   ├── data_ingestion.py      # Data ingestion (GDELT articles + OHLCV prices)
 │   ├── validate_gdelt.py       # GDELT data validation
@@ -76,7 +76,7 @@ market-sentiment-analysis/
 │   ├── add_sentiment.py      # Add sentiment scores to GDELT (word-bank lexicon)
 │   ├── dedupe_and_sentiment.py  # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news day t → prices day t+1)
-│   └── run_pipeline.sh        # Full pipeline: validate → clean → accumulate; optional ingestion (RUN_INGEST=1)
+│   └── run_pipeline.sh        # Full pipeline: validate → clean → accumulate → sentiment; optional ingestion (RUN_INGEST=1). Join (build_gdelt_ohlcv_join.py) is separate.
 ├── notebooks/                 # Exploratory notebooks (root)
 ├── docs/
 │   ├── architecture/          # Pipeline diagram (pipeline.md, pipeline.svg)
@@ -235,7 +235,7 @@ python scripts/ohlcv_cleaning.py
 ```
 
 #### Full Pipeline (Recommended)
-Run the complete validation and cleaning pipeline:
+Run the complete pipeline: validation, cleaning, accumulation, and sentiment (GDELT only). Produces `gdelt_articles_with_sentiment.csv` and `prices_daily_accumulated.csv`. The price–news join (`build_gdelt_ohlcv_join.py`) is **not** run by the pipeline; run it separately when needed.
 
 **Linux/macOS:**
 ```bash
@@ -275,44 +275,22 @@ RUN_INGEST=1 bash scripts/run_pipeline.sh
 
 **Important:** The pipeline script requires an active conda environment. It will check for `CONDA_PREFIX` and exit with an error if no conda environment is active. The script also validates that required Python packages are installed.
 
-The pipeline script:
-- Validates dependencies are installed
-- **When `RUN_INGEST=1`:** Runs `data_ingestion.py` (fetches raw data, archives previous canonical files, writes a run manifest to `data/raw/snapshots/run_manifest_YYYY-MM-DD.json`)
-- When ingestion is skipped (`RUN_INGEST=0`, the default), no run manifest is produced; raw files must already exist
-- Runs validation scripts (generates reports in `docs/validation/`)
-- Runs cleaning scripts (generates cleaned data in `data/processed/`)
-- Verifies all outputs are created successfully
+The pipeline script (`run_pipeline.sh`) does the following:
+- **Preflight:** Validates conda env and required packages (pandas, numpy, pandas_market_calendars).
+- **Optional ingestion:** When `RUN_INGEST=1`, runs `data_ingestion.py` (fetches raw GDELT + OHLCV, archives previous canonical files, writes `data/raw/snapshots/run_manifest_YYYY-MM-DD.json`). When skipped (`RUN_INGEST=0`, default), raw files must already exist.
+- **GDELT:** `validate_gdelt.py` → `cleaning_gdelt.py` → `accumulate.py` (url dedupe) → `add_sentiment.py` → `dedupe_and_sentiment.py`. Outputs: `gdelt_articles_clean.csv`, `gdelt_articles_accumulated.csv`, `gdelt_articles_with_sentiment.csv`.
+- **OHLCV:** `ohlcv_validation.py` → `ohlcv_cleaning.py` → `accumulate.py` (date,ticker dedupe). Outputs: `prices_daily_clean.csv`, `prices_daily_accumulated.csv`.
+- **Does not run:** `build_gdelt_ohlcv_join.py`. Run that script separately when you need the price–news join table.
 
-#### Sequence for sentiment and price–news join
+#### Build the GDELT–OHLCV join (separate step)
 
-To produce **`gdelt_articles_with_sentiment.csv`** and then the **GDELT–OHLCV join table** (`gdelt_ohlcv_join.csv`) for analysis, run steps in this order:
+The pipeline does **not** run `build_gdelt_ohlcv_join.py`. After the pipeline has produced `gdelt_articles_with_sentiment.csv` and `prices_daily_accumulated.csv`, run the join script when you need the price–news table for analysis:
 
-1. **Pipeline** (validation, cleaning, accumulation):
-   ```bash
-   ./scripts/run_pipeline.sh
-   # Optional: RUN_INGEST=1 ./scripts/run_pipeline.sh  # to fetch new raw data first
-   ```
-   Produces: `gdelt_articles_clean.csv`, `gdelt_articles_accumulated.csv`, `prices_daily_clean.csv`, `prices_daily_accumulated.csv`.
+```bash
+python scripts/build_gdelt_ohlcv_join.py
+```
 
-2. **Add sentiment** to the accumulated GDELT articles:
-   ```bash
-   python scripts/add_sentiment.py
-   ```
-   Reads `gdelt_articles_accumulated.csv`, adds `sentiment_score` (and related columns), writes `gdelt_articles_with_sentiment.csv`. Default paths: `--input` / `--output` in `data/processed/`.
-
-3. **Deduplicate and regenerate sentiment** (recommended before the join):
-   ```bash
-   python scripts/dedupe_and_sentiment.py
-   ```
-   Reads `gdelt_articles_accumulated.csv`, deduplicates by URL and by normalized headline per ticker, then adds sentiment and overwrites `gdelt_articles_with_sentiment.csv`. Run this so the join uses deduplicated articles.
-
-4. **Build the GDELT–OHLCV join table** (news day t → prices day t+1):
-   ```bash
-   python scripts/build_gdelt_ohlcv_join.py
-   ```
-   Reads `gdelt_articles_with_sentiment.csv` and `prices_daily_accumulated.csv`, aligns each article to the *next trading day* (weekends/holidays handled via NYSE calendar), and writes `data/processed/gdelt_ohlcv_join.csv` for downstream analysis.
-
-**Summary:** Pipeline → `add_sentiment.py` → `dedupe_and_sentiment.py` → `build_gdelt_ohlcv_join.py`. The join script must run after `gdelt_articles_with_sentiment.csv` exists (after step 2 or 3); running step 3 before the join is recommended so the join uses deduplicated sentiment data.
+This reads `gdelt_articles_with_sentiment.csv` and `prices_daily_accumulated.csv`, aligns each article to the *next trading day* (weekends/holidays via NYSE calendar), and writes `data/processed/gdelt_ohlcv_join.csv`.
 
 ## Validation Scripts
 
