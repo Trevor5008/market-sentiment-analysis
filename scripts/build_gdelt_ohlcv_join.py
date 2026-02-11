@@ -112,12 +112,23 @@ def build_join(
     ohlcv_sub = ohlcv_sub.rename(columns={"date": "price_date"})
     ohlcv_sub["price_date"] = pd.to_datetime(ohlcv_sub["price_date"]).dt.normalize()
 
-    # Join on (price_date, ticker)
+    # Join on (price_date, ticker) — only articles whose next trading day exists in OHLCV are kept
     join_df = gdelt.merge(
         ohlcv_sub,
         on=["price_date", "ticker"],
         how="inner",
     )
+
+    # Diagnose: join can end before GDELT when OHLCV has no row for the "next trading day" of latest articles
+    join_art_max = join_df["article_date"].max()
+    join_price_max = join_df["price_date"].max()
+    print(f"  GDELT article_date range: {art_min.date()} to {art_max.date()}")
+    print(f"  OHLCV date range:         {ohlcv_min.date()} to {ohlcv_max.date()}")
+    print(f"  Join article_date range: {join_df['article_date'].min().date()} to {join_art_max.date()}")
+    print(f"  Join price_date range:   {join_df['price_date'].min().date()} to {join_price_max.date()}")
+    if art_max > join_art_max:
+        n_tail = (gdelt["article_date"] > join_art_max).sum()
+        print(f"  → {n_tail} article rows after {join_art_max.date()} dropped (no OHLCV for their next trading day).")
 
     # Sort for readability
     sort_cols = [c for c in ["article_date", "ticker", "seendate"] if c in join_df.columns]
