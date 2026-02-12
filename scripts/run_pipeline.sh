@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+#
+# run_pipeline.sh — Full data pipeline: validate → clean → accumulate → sentiment.
+#
+# Optional: RUN_INGEST=1 runs data_ingestion.py first (fetch raw GDELT + OHLCV, archive, manifest).
+#
+# Pipeline steps:
+#   1. GDELT: validate_gdelt → cleaning_gdelt → accumulate (url dedupe) → add_sentiment → dedupe_and_sentiment
+#      Outputs: gdelt_articles_clean.csv, gdelt_articles_accumulated.csv, gdelt_articles_with_sentiment.csv
+#   2. OHLCV: ohlcv_validation → ohlcv_cleaning → accumulate (date,ticker dedupe)
+#      Outputs: prices_daily_clean.csv, prices_daily_accumulated.csv
+#
+# Not run by this script: build_gdelt_ohlcv_join.py (news day t → prices day t+1).
+# Run separately when needed: python scripts/build_gdelt_ohlcv_join.py
+#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -50,14 +64,13 @@ RUN_INGEST="${RUN_INGEST:-0}" # REQUIRED for accumulation component (dependency)
 if [[ "$RUN_INGEST" == "1" ]]; then
   echo "RUNNING data_ingestion.py..."
   python "$PROJECT_ROOT/scripts/data_ingestion.py"
-  # Verify run manifest was created (same date logic as data_ingestion.py)
+  # Verify a run manifest was created (ingestion names it by end_dt, not today)
   MANIFEST_DIR="$PROJECT_ROOT/data/raw/snapshots"
-  TODAY_UTC=$(python -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%d'))")
-  MANIFEST_FILE="$MANIFEST_DIR/run_manifest_${TODAY_UTC}.json"
-  if [[ -f "$MANIFEST_FILE" ]]; then
-    echo "[OK] Run manifest: $MANIFEST_FILE"
+  LATEST_MANIFEST=$(ls -t "$MANIFEST_DIR"/run_manifest_*.json 2>/dev/null | head -1)
+  if [[ -n "$LATEST_MANIFEST" && -f "$LATEST_MANIFEST" ]]; then
+    echo "[OK] Run manifest: $LATEST_MANIFEST"
   else
-    echo "ERROR: Run manifest was not created at $MANIFEST_FILE"
+    echo "ERROR: No run manifest found in $MANIFEST_DIR"
     exit 1
   fi
 else
@@ -82,7 +95,7 @@ if [[ ! -f "$PROJECT_ROOT/data/raw/prices_daily.csv" ]]; then
   exit 1
 fi
 
-# ---- GDELT validate + clean ----
+# ---- GDELT: validate → clean → accumulate → sentiment ----
 echo
 echo "==================== GDELT PIPELINE ===================="
 echo "RUNNING validate_gdelt.py..."
@@ -101,7 +114,6 @@ if [[ ! -f "$PROJECT_ROOT/data/processed/gdelt_articles_clean.csv" ]]; then
   exit 1
 fi
 
-echo "GDELT complete."
 echo "Accumulating GDELT..."
 "$PYTHON_BIN" "$PROJECT_ROOT/scripts/accumulate.py" \
   --new "$PROJECT_ROOT/data/processed/gdelt_articles_clean.csv" \
@@ -110,7 +122,23 @@ echo "Accumulating GDELT..."
   --key "url" \
   --sort "seendate,ticker"
 
-# ---- OHLCV validate + clean ----
+# Sentiment (word-bank) then dedupe + regenerate sentiment → gdelt_articles_with_sentiment.csv
+echo "RUNNING add_sentiment.py..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/add_sentiment.py" \
+  --input "$PROJECT_ROOT/data/processed/gdelt_articles_accumulated.csv" \
+  --output "$PROJECT_ROOT/data/processed/gdelt_articles_with_sentiment.csv"
+
+echo "RUNNING dedupe_and_sentiment.py..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/dedupe_and_sentiment.py"
+
+if [[ ! -f "$PROJECT_ROOT/data/processed/gdelt_articles_with_sentiment.csv" ]]; then
+  echo "ERROR: data/processed/gdelt_articles_with_sentiment.csv was not created"
+  exit 1
+fi
+
+echo "GDELT complete (accumulated + sentiment)."
+
+# ---- OHLCV: validate → clean → accumulate ----
 echo
 echo "==================== OHLCV PIPELINE ===================="
 echo "RUNNING ohlcv_validation.py..."
@@ -142,4 +170,8 @@ echo "Accumulating OHLCV..."
 echo
 echo "============================================================"
 echo "PIPELINE COMPLETE ✅"
+echo "============================================================"
+echo "Outputs: gdelt_articles_with_sentiment.csv, prices_daily_accumulated.csv"
+echo "To build the price–news join (news t → prices t+1), run:"
+echo "  python scripts/build_gdelt_ohlcv_join.py"
 echo "============================================================"
