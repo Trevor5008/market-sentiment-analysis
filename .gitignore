@@ -7,9 +7,18 @@ __pycache__/
 .vscode/
 .idea/
 
-# Data artifacts
+# -------------
+# DATA POLICY
+# -------------
+
+# Ignore everything in data dirs (default)
 data/raw/*
 data/processed/*
+data/raw/archive/*
+data/raw/snapshots/*
+
+# Validation reports (local artifacts; regenerate by running validation scripts)
+docs/validation/*
 
 # Reports
 reports/*.pdf
@@ -18,6 +27,11 @@ reports/*.html
 # Keep folders in git
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
+# Tracked canonical snapshot files  
+!data/raw/gdelt_articles.csv
+!data/raw/prices_daily.csv
+!data/processed/gdelt_articles_clean.csv
 
 # C extensions
 *.so
