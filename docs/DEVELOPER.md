@@ -173,6 +173,12 @@ Or run the pipeline; it will check for `pandas`, `numpy`, and `pandas_market_cal
 
 The pipeline runs GDELT (validate → clean → accumulate → add_sentiment → dedupe_and_sentiment) and OHLCV (validate → clean → accumulate). It does **not** run `build_gdelt_ohlcv_join.py`; run that separately when you need the price–news join.
 
+Optional ingestion date range:
+- `data_ingestion.py` supports `FIXED_START_DATE` and `FIXED_END_DATE` (format `YYYY-MM-DD`).
+- It also supports optional `DAYS_BACK` (positive integer), default `30`.
+- These are read only when ingestion runs (`RUN_INGEST=1` in the pipeline, or direct `python scripts/data_ingestion.py`).
+- If only `FIXED_END_DATE` is set, ingestion derives start from `DAYS_BACK`.
+
 - **Pipeline without ingestion** (raw files must already exist). Produces `gdelt_articles_with_sentiment.csv`, `prices_daily_accumulated.csv`, and other processed outputs:
 
   ```bash
@@ -184,6 +190,19 @@ The pipeline runs GDELT (validate → clean → accumulate → add_sentiment →
 
   ```bash
   RUN_INGEST=1 ./scripts/run_pipeline.sh
+  ```
+
+- **Pipeline with ingestion and custom rolling window**:
+
+  ```bash
+  DAYS_BACK=45 RUN_INGEST=1 ./scripts/run_pipeline.sh
+  ```
+
+- **Pipeline with ingestion and fixed date window**:
+
+  ```bash
+  # Example date range
+  FIXED_START_DATE=2026-01-15 FIXED_END_DATE=2026-01-26 RUN_INGEST=1 ./scripts/run_pipeline.sh
   ```
 
 - **Build the price–news join** (after pipeline has run):
@@ -227,6 +246,20 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for workflow (tickets, branching, comm
 ```bash
 conda activate advds
 RUN_INGEST=1 ./scripts/run_pipeline.sh
+```
+
+To pin ingestion to a specific window:
+
+```bash
+conda activate advds
+FIXED_START_DATE=2026-01-15 FIXED_END_DATE=2026-01-26 RUN_INGEST=1 ./scripts/run_pipeline.sh
+```
+
+To use a fixed end date with custom `DAYS_BACK`:
+
+```bash
+conda activate advds
+FIXED_END_DATE=2026-01-26 DAYS_BACK=12 RUN_INGEST=1 ./scripts/run_pipeline.sh
 ```
 
 ### Run pipeline without ingestion

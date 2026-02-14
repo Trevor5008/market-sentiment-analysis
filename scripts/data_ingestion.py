@@ -165,8 +165,8 @@ def fetch_gdelt_articles(
         ct = resp.headers.get("content-type", "")
         if "json" not in ct.lower():
             print(
-                f"[GDELT] Non-JSON response status={resp.status_code} " +
-                    "content-type={ct} query={query}")
+                f"[GDELT] Non-JSON response status={resp.status_code} "
+                f"content-type={ct} query={query[:60]}...")
             print(resp.text[:300])
             break
         try:
@@ -176,8 +176,21 @@ def fetch_gdelt_articles(
                     f"{data.get('error')} | query={query}")
                 break
         except ValueError as e:
-            print(f"Warning: Failed to parse JSON response: {e}")
-            break
+            snippet = (resp.text or "")[:400].replace("\n", " ")
+            print(f"[GDELT] Failed to parse JSON: {e}. Response snippet: {snippet}")
+            # Retry this page once in case of transient bad response
+            time.sleep(1.0)
+            resp = request_with_backoff(
+                GDELT_DOC_URL, params=params, headers=headers)
+            try:
+                data = resp.json()
+            except ValueError:
+                print("[GDELT] Retry also returned invalid JSON; skipping rest of this pass.")
+                break
+            if "error" in data:
+                print("[GDELT] API error on retry: " + f"{data.get('error')}")
+                break
+            # fall through to use data from retry
 
         articles = data.get("articles") or []
         if not isinstance(articles, list):
@@ -279,8 +292,34 @@ def main() -> None:
     archive_dir = out_dir / "archive"
     snapshots_dir = out_dir / "snapshots"
 
-    end_dt = utc_now()
-    start_dt = end_dt - timedelta(days=cfg.days_back)
+    # Optional override for rolling window length (default = 30 days)
+    days_back_env = os.environ.get("DAYS_BACK")
+    if days_back_env:
+        try:
+            cfg.days_back = int(days_back_env)
+            if cfg.days_back <= 0:
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                "Invalid DAYS_BACK value. Use a positive integer, e.g. DAYS_BACK=30."
+            )
+
+    # Date range controls:
+    # - FIXED_START_DATE and FIXED_END_DATE (YYYY-MM-DD) define an explicit window.
+    # - If FIXED_END_DATE is set and FIXED_START_DATE is omitted, start_dt = end_dt - DAYS_BACK.
+    # - If FIXED_END_DATE is unset, end_dt = now and start_dt = end_dt - DAYS_BACK.
+    fixed_end = os.environ.get("FIXED_END_DATE")
+    fixed_start = os.environ.get("FIXED_START_DATE")
+    if fixed_end:
+        end_dt = datetime.strptime(fixed_end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        start_dt = (
+            datetime.strptime(fixed_start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if fixed_start
+            else end_dt - timedelta(days=cfg.days_back)
+        )
+    else:
+        end_dt = utc_now()
+        start_dt = end_dt - timedelta(days=cfg.days_back)
     date_str = end_dt.strftime("%Y-%m-%d")
 
     print(f"[Ingestion] Requested date range: {start_dt.date().isoformat()} to {end_dt.date().isoformat()} (UTC)")
@@ -324,6 +363,11 @@ def main() -> None:
 
     articles_df = pd.concat(
         article_frames, ignore_index=True) if article_frames else pd.DataFrame()
+    # Diagnostic: actual article date range returned (may be narrower than requested)
+    if not articles_df.empty and "seendate" in articles_df.columns:
+        art_min = articles_df["seendate"].min()
+        art_max = articles_df["seendate"].max()
+        print(f"[Ingestion] GDELT article date range in output: {pd.Timestamp(art_min).date()} to {pd.Timestamp(art_max).date()}")
     articles_path = out_dir / "gdelt_articles.csv"
     archive_if_exists(articles_path, archive_dir, date_str, "gdelt_articles")
     articles_df.to_csv(articles_path, index=False)

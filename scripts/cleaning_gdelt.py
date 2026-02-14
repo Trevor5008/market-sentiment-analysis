@@ -197,6 +197,7 @@ def clean_pipeline(df: pd.DataFrame) -> pd.DataFrame:
     df = filter_relevance(df)
 
     print("\n[6/6] Dropping missing required fields...")
+    df["date"] = pd.to_datetime(df["seendate"], errors="coerce").dt.date
     df = drop_missing_required(df, gdelt_required_cols)
 
     print(f"\n{'='*50}")
