@@ -53,7 +53,7 @@ def get_project_root() -> Path:
 
 @dataclass
 class Config:
-    days_back: int = 10
+    days_back: int = 30
     max_articles_per_company: int = 2000  # Per company: dateasc + datedesc passes; after headline dedupe in cleaning, unique stories span window
     page_size: int = 250  # GDELT API max per request
     out_dir: str = "data/raw"
@@ -292,9 +292,22 @@ def main() -> None:
     archive_dir = out_dir / "archive"
     snapshots_dir = out_dir / "snapshots"
 
-    # Date range: use env FIXED_END_DATE (and optional FIXED_START_DATE) to fill a gap, e.g.:
-    #   FIXED_START_DATE=2026-01-15 FIXED_END_DATE=2026-01-26 python scripts/data_ingestion.py
-    # If FIXED_END_DATE is unset, end_dt = now and start_dt = end_dt - days_back.
+    # Optional override for rolling window length (default = 30 days)
+    days_back_env = os.environ.get("DAYS_BACK")
+    if days_back_env:
+        try:
+            cfg.days_back = int(days_back_env)
+            if cfg.days_back <= 0:
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                "Invalid DAYS_BACK value. Use a positive integer, e.g. DAYS_BACK=30."
+            )
+
+    # Date range controls:
+    # - FIXED_START_DATE and FIXED_END_DATE (YYYY-MM-DD) define an explicit window.
+    # - If FIXED_END_DATE is set and FIXED_START_DATE is omitted, start_dt = end_dt - DAYS_BACK.
+    # - If FIXED_END_DATE is unset, end_dt = now and start_dt = end_dt - DAYS_BACK.
     fixed_end = os.environ.get("FIXED_END_DATE")
     fixed_start = os.environ.get("FIXED_START_DATE")
     if fixed_end:

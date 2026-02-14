@@ -237,6 +237,12 @@ python scripts/ohlcv_cleaning.py
 #### Full Pipeline (Recommended)
 Run the complete pipeline: validation, cleaning, accumulation, and sentiment (GDELT only). Produces `gdelt_articles_with_sentiment.csv` and `prices_daily_accumulated.csv`. The price–news join (`build_gdelt_ohlcv_join.py`) is **not** run by the pipeline; run it separately when needed.
 
+**Optional ingestion date range (before pipeline run):**
+- `data_ingestion.py` supports `FIXED_START_DATE` and `FIXED_END_DATE` (format `YYYY-MM-DD`).
+- It also supports optional `DAYS_BACK` (positive integer), default `30`.
+- These env vars are only used when ingestion runs (`RUN_INGEST=1` in the pipeline, or when running `python scripts/data_ingestion.py` directly).
+- If `FIXED_END_DATE` is set and `FIXED_START_DATE` is omitted, ingestion uses `start_dt = end_dt - DAYS_BACK`.
+
 **Linux/macOS:**
 ```bash
 # Make the script executable (first time only)
@@ -253,6 +259,15 @@ bash scripts/run_pipeline.sh
 
 # To include data ingestion in the pipeline:
 RUN_INGEST=1 ./scripts/run_pipeline.sh
+
+# To include ingestion with a custom rolling window:
+DAYS_BACK=45 RUN_INGEST=1 ./scripts/run_pipeline.sh
+
+# To include ingestion with a fixed date window:
+FIXED_START_DATE=2026-01-15 FIXED_END_DATE=2026-01-26 RUN_INGEST=1 ./scripts/run_pipeline.sh
+
+# To include fixed end date + custom DAYS_BACK:
+FIXED_END_DATE=2026-01-26 DAYS_BACK=12 RUN_INGEST=1 ./scripts/run_pipeline.sh
 ```
 
 **Windows:**
@@ -271,6 +286,15 @@ chmod +x scripts/run_pipeline.sh
 
 # To include data ingestion:
 RUN_INGEST=1 bash scripts/run_pipeline.sh
+
+# To include ingestion with a custom rolling window:
+DAYS_BACK=45 RUN_INGEST=1 bash scripts/run_pipeline.sh
+
+# To include ingestion with a fixed date window:
+FIXED_START_DATE=2026-01-15 FIXED_END_DATE=2026-01-26 RUN_INGEST=1 bash scripts/run_pipeline.sh
+
+# To include fixed end date + custom DAYS_BACK:
+FIXED_END_DATE=2026-01-26 DAYS_BACK=12 RUN_INGEST=1 bash scripts/run_pipeline.sh
 ```
 
 **Important:** The pipeline script requires an active conda environment. It will check for `CONDA_PREFIX` and exit with an error if no conda environment is active. The script also validates that required Python packages are installed.
