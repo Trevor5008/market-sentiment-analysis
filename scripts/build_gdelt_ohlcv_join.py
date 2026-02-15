@@ -13,7 +13,6 @@ Output: one row per (article, ticker) with article fields plus next-day price fi
 """
 
 from __future__ import annotations
-
 import argparse
 import pandas as pd
 import numpy as np
@@ -42,7 +41,7 @@ def get_trading_days(start: pd.Timestamp, end: pd.Timestamp, exchange: str = "NY
     schedule = cal.schedule(start_date=start, end_date=end)
     return pd.DatetimeIndex(schedule.index).tz_localize(None).normalize()
 
-
+# Helper function for getting the next trading day
 def next_trading_day_series(dates: pd.Series, trading_days: pd.DatetimeIndex) -> pd.Series:
     """
     For each date in `dates`, return the next trading day (strictly after that date).
@@ -54,12 +53,15 @@ def next_trading_day_series(dates: pd.Series, trading_days: pd.DatetimeIndex) ->
     # searchsorted(t, d, side='right') = index of first trading day > d
     indices = np.searchsorted(t, norm.values, side="right")
     no_next = indices >= len(t)
-    result = pd.Series(t[indices], index=dates.index)
+    # Avoid IndexError: indices can equal len(t) when no trading day exists after date
+    # Occurs when latest gdelt article is after last trading day
+    indices_safe = np.where(no_next, 0, indices)
+    result = pd.Series(t[indices_safe], index=dates.index)
     result = result.where(~no_next, pd.NaT)
     result = result.where(norm.notna(), pd.NaT)  # keep NaT where input was NaT
     return result
 
-
+# Main function for building the join table
 def build_join(
     gdelt_path: Path | str,
     ohlcv_path: Path | str,
