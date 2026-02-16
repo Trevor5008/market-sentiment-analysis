@@ -98,12 +98,12 @@ def to_gdelt_dt(dt: datetime) -> str:
     # Format required by GDELT: YYYYMMDDHHMMSS in UTC
     return dt.astimezone(timezone.utc).strftime("%Y%m%d%H%M%S")
 
-
+# Helper functions for GDELT JSON parsing
 def _sanitize_json_control_chars(text: str) -> str:
     """Replace ASCII control chars (0x00-0x1f) with space to fix GDELT's invalid JSON."""
     return "".join(" " if ord(c) < 32 else c for c in text)
 
-
+# Helper function for GDELT JSON parsing
 def _parse_gdelt_json(text: str) -> Any:
     """Parse GDELT JSON, with fallback for 'Invalid control character' errors."""
     try:
@@ -114,7 +114,7 @@ def _parse_gdelt_json(text: str) -> Any:
             return json.loads(_sanitize_json_control_chars(text))
         raise
 
-
+# Helper for detecting HTML/non-JSON responses
 def _response_looks_non_json(text: str) -> bool:
     """True if response body clearly looks like HTML or non-JSON. Skip parse, use backoff retry."""
     if not text or not text.strip():
@@ -136,7 +136,7 @@ def _response_looks_non_json(text: str) -> bool:
         return False
     return True
 
-
+# Helper for making GDELT API requests with backoff
 def request_with_backoff(
     url: str,
     params: Dict[str, str],
@@ -166,7 +166,7 @@ def request_with_backoff(
         f"Request failed after {max_retries} retries. Last error: {last_err}"
     )
 
-
+# Main function for fetching GDELT articles
 def fetch_gdelt_articles(
     query: str,
     start_dt: datetime,
