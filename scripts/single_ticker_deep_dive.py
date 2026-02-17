@@ -7,7 +7,7 @@ TARGET_TICKER = "NVDA"
 HISTORY_YEARS = 2      # 1 year gives ~252 data points
 
 def analyze_ticker_robust(ticker):
-    print(f" Fetching {HISTORY_YEARS} year(s) of data for {ticker} to ensure statistical significance...")
+    print(f" Fetching {HISTORY_YEARS} year(s) of data for {ticker} ...")
     
     # 1. Fetch fresh long term data directly
     ticker_obj = yf.Ticker(ticker)
@@ -37,6 +37,13 @@ def analyze_ticker_robust(ticker):
     # INSIGHT 2: Overnight Gaps
     df['prev_close'] = df['close'].shift(1)
     df['gap_pct'] = ((df['open'] - df['prev_close']) / df['prev_close']) * 100
+    
+    # Filter for significant gaps (> 1.5% absolute move)
+    big_gaps = df[df['gap_pct'].abs() > 1.5].copy()
+    
+    # Sort by the size of the gap (largest first) so we see the biggest moves
+    top_gaps = big_gaps.sort_values('gap_pct', key=abs, ascending=False).head(5)
+    
     avg_gap = df['gap_pct'].abs().mean()
 
     # INSIGHT 3: Volume Impact
@@ -47,8 +54,8 @@ def analyze_ticker_robust(ticker):
     high_vol_days = df[df['volume'] > 1.5 * df['vol_ma']]
     
     # Win rate: Did it close higher than it opened? (Green candle)
-    # or did it close higher than yesterday? (Price gain)
-    # Let's use Price Gain (daily_return > 0)
+    # did it close higher than yesterday? (Price gain)
+    # use Price Gain (daily_return > 0)
     if len(high_vol_days) > 0:
         high_vol_win_rate = (high_vol_days['daily_return'] > 0).mean() * 100
         count_high_vol = len(high_vol_days)
@@ -81,6 +88,14 @@ def analyze_ticker_robust(ticker):
 
     print(f"\n2. OVERNIGHT GAPS")
     print(f"   - Avg Gap Size: {avg_gap:.2f}%")
+    if not top_gaps.empty:
+        print(f"   - Top 5 Biggest Overnight Moves:")
+        for idx, row in top_gaps.iterrows():
+            # Note: 'idx' is the Date index
+            date_val = row['date']
+            gap_str = f"{row['gap_pct']:+.2f}%"
+            print(f"       * {date_val.strftime('%Y-%m-%d')}: {gap_str}")
+            
     if avg_gap > 1.5:
         print("   - Insight: Highly sensitive to overnight news.")
     else:
