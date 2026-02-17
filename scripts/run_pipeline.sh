@@ -64,14 +64,13 @@ RUN_INGEST="${RUN_INGEST:-0}" # REQUIRED for accumulation component (dependency)
 if [[ "$RUN_INGEST" == "1" ]]; then
   echo "RUNNING data_ingestion.py..."
   python "$PROJECT_ROOT/scripts/data_ingestion.py"
-  # Verify run manifest was created (same date logic as data_ingestion.py)
+  # Verify a run manifest was created (ingestion names it by end_dt, not today)
   MANIFEST_DIR="$PROJECT_ROOT/data/raw/snapshots"
-  TODAY_UTC=$(python -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%d'))")
-  MANIFEST_FILE="$MANIFEST_DIR/run_manifest_${TODAY_UTC}.json"
-  if [[ -f "$MANIFEST_FILE" ]]; then
-    echo "[OK] Run manifest: $MANIFEST_FILE"
+  LATEST_MANIFEST=$(ls -t "$MANIFEST_DIR"/run_manifest_*.json 2>/dev/null | head -1)
+  if [[ -n "$LATEST_MANIFEST" && -f "$LATEST_MANIFEST" ]]; then
+    echo "[OK] Run manifest: $LATEST_MANIFEST"
   else
-    echo "ERROR: Run manifest was not created at $MANIFEST_FILE"
+    echo "ERROR: No run manifest found in $MANIFEST_DIR"
     exit 1
   fi
 else

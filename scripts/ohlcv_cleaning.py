@@ -111,7 +111,10 @@ def clean_pipeline(df: pd.DataFrame, exchange: str) -> pd.DataFrame:
 
     print("\n[4/4] Interpolating missing values...")
     df = handle_missing_values(df)
-
+    
+    print("n\[5/5] Standardizing date format...")
+    df['date'] = pd.to_datetime(df['date']).dt.date
+    print("  Converted date to YYYY-MM-DD format")
     print(f"\n{'='*50}")
     print(f"Output: {len(df):,} rows")
     return df.sort_values(["ticker", "date"]).reset_index(drop=True)

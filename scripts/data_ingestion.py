@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import shutil
 import subprocess
 import time
-import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -34,8 +34,7 @@ MAG7: Dict[str, str] = {
 }
 
 COMPANY_QUERY_OVERRIDES = {
-    "Meta": '("Meta Platforms" OR Facebook OR META) (stock OR shares OR' +
-        'earnings OR revenue)'
+    "Meta": '("Meta Platforms" OR Facebook OR META) (stock OR shares OR earnings OR revenue)',
 }
 
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -53,9 +52,9 @@ def get_project_root() -> Path:
 
 @dataclass
 class Config:
-    days_back: int = 30
-    max_articles_per_company: int = 2000  # Per company: dateasc + datedesc passes; after headline dedupe in cleaning, unique stories span window
-    page_size: int = 250  # GDELT API max per request
+    days_back: int = 7
+    max_articles_per_company: int = 500  # dateasc + datedesc passes; after headline dedupe
+    page_size: int = 100  # GDELT API max per request
     out_dir: str = "data/raw"
     user_agent: str = "market-sentiment-analysis/data_ingestion (capstone)"
 
@@ -100,6 +99,44 @@ def to_gdelt_dt(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y%m%d%H%M%S")
 
 
+def _sanitize_json_control_chars(text: str) -> str:
+    """Replace ASCII control chars (0x00-0x1f) with space to fix GDELT's invalid JSON."""
+    return "".join(" " if ord(c) < 32 else c for c in text)
+
+
+def _parse_gdelt_json(text: str) -> Any:
+    """Parse GDELT JSON, with fallback for 'Invalid control character' errors."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        if "control character" in str(e).lower():
+            print("[GDELT] Invalid control character in response; sanitizing and retrying parse...")
+            return json.loads(_sanitize_json_control_chars(text))
+        raise
+
+
+def _response_looks_non_json(text: str) -> bool:
+    """True if response body clearly looks like HTML or non-JSON. Skip parse, use backoff retry."""
+    if not text or not text.strip():
+        return True
+    t = text.strip().lower()
+    # Check HTML/error indicators first (GDELT error body can start with {Content-type: text/html...)
+    if (
+        "content-type: text/html" in t[:800]
+        or "unknown error occurred" in t[:1000]
+        or "try your query again" in t[:1000]
+        or "<!doctype" in t[:1000]
+        or "<html" in t[:500]
+    ):
+        return True
+    if t.startswith("<"):
+        return True
+    # Valid JSON starts with { or [
+    if t.startswith("{") or t.startswith("["):
+        return False
+    return True
+
+
 def request_with_backoff(
     url: str,
     params: Dict[str, str],
@@ -110,8 +147,7 @@ def request_with_backoff(
     last_err: Optional[Exception] = None
     for attempt in range(max_retries):
         try:
-            resp = requests.get(url, params=params,
-                                headers=headers, timeout=timeout)
+            resp = requests.get(url, params=params, headers=headers, timeout=timeout)
 
             # Handle rate limiting explicitly
             if resp.status_code == 429:
@@ -164,25 +200,76 @@ def fetch_gdelt_articles(
             GDELT_DOC_URL, params=params, headers=headers)
         ct = resp.headers.get("content-type", "")
         if "json" not in ct.lower():
-            print(
-                f"[GDELT] Non-JSON response status={resp.status_code} " +
-                    "content-type={ct} query={query}")
+            print(f"[GDELT] Non-JSON response status={resp.status_code} content-type={ct} query={query[:60]}...")
             print(resp.text[:300])
             break
-        try:
-            data = resp.json()
-            if "error" in data:
-                print("[GDELT] API error: " +
-                    f"{data.get('error')} | query={query}")
+
+        # Explicit check: skip parse if body is HTML/non-JSON; avoid unproductive parse + immediate retry
+        text = resp.text or ""
+        if _response_looks_non_json(text):
+            print("[GDELT] Response is HTML/non-JSON; skipping parse, using backoff retry...")
+            is_transient = True
+            data = None
+        else:
+            try:
+                data = _parse_gdelt_json(text)
+                if "error" in data:
+                    print(f"[GDELT] API error: {data.get('error')} | query={query[:60]}...")
+                    break
+                is_transient = False
+            except ValueError as e:
+                text_lower = text.lower()
+                snippet = text_lower[:400].replace("\n", " ")
+                print(f"[GDELT] Failed to parse JSON: {e}. Response snippet: {snippet}")
+                # GDELT returns HTML with "try again in a few minutes" on transient errors
+                is_transient = (
+                    "unknown error occurred" in text_lower
+                    or "try your query again" in text_lower
+                    or "content-type: text/html" in text_lower
+                )
+                data = None
+
+        if data is None:
+            max_parse_retries = 3 if is_transient else 1
+            parse_retry_delay = 120 if is_transient else 1  # seconds
+            for parse_attempt in range(max_parse_retries):
+                if parse_attempt > 0 or is_transient:
+                    msg = f"[GDELT] Retry {parse_attempt + 1}/{max_parse_retries}"
+                    if is_transient:
+                        msg += f" (waiting {parse_retry_delay}s for GDELT recovery)..."
+                    else:
+                        msg += f" (waiting {parse_retry_delay}s)..."
+                    print(msg)
+                    time.sleep(parse_retry_delay)
+                resp = request_with_backoff(
+                    GDELT_DOC_URL, params=params, headers=headers)
+                ct = resp.headers.get("content-type", "")
+                if "json" not in ct.lower():
+                    print(f"[GDELT] Retry returned non-JSON (content-type={ct}); skipping rest of this pass.")
+                    break
+
+                # Handle HTML/non-JSON responses
+                if _response_looks_non_json(resp.text or ""):
+                    print(f"[GDELT] Retry returned HTML/non-JSON again; retry {parse_attempt + 1}/{max_parse_retries}.")
+                    continue
+                try:
+                    data = _parse_gdelt_json(resp.text or "")
+                    break
+                except (ValueError, json.JSONDecodeError):
+                    if parse_attempt < max_parse_retries - 1:
+                        continue
+                    print("[GDELT] Retries exhausted; skipping rest of this pass.")
+                    break
+
+            if data is None:
                 break
-        except ValueError as e:
-            print(f"Warning: Failed to parse JSON response: {e}")
-            break
+            if "error" in data:
+                print(f"[GDELT] API error on retry: {data.get('error')}")
+                break
 
         articles = data.get("articles") or []
         if not isinstance(articles, list):
-            print("[GDELT] Unexpected payload shape" +
-                f"(no articles list). Keys: {list(data.keys())}")
+            print(f"[GDELT] Unexpected payload shape (no articles list). Keys: {list(data.keys())}")
             break
         if not articles:
             break
@@ -226,8 +313,11 @@ def fetch_gdelt_articles(
     return df
 
 
-def fetch_prices_daily(tickers: List[str]
-                       , start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+def fetch_prices_daily(
+    tickers: List[str],
+    start_dt: datetime,
+    end_dt: datetime,
+) -> pd.DataFrame:
     # yfinance end date is exclusive; add one day to include end date
     start_str = start_dt.date().isoformat()
     end_str = (end_dt.date() + timedelta(days=1)).isoformat()
@@ -279,8 +369,32 @@ def main() -> None:
     archive_dir = out_dir / "archive"
     snapshots_dir = out_dir / "snapshots"
 
-    end_dt = utc_now()
-    start_dt = end_dt - timedelta(days=cfg.days_back)
+    # Optional override for rolling window length (DAYS_BACK env var)
+    days_back_env = os.environ.get("DAYS_BACK")
+    if days_back_env:
+        try:
+            cfg.days_back = int(days_back_env)
+            if cfg.days_back <= 0:
+                raise ValueError
+        except ValueError:
+            raise SystemExit("Invalid DAYS_BACK value. Use a positive integer, e.g. DAYS_BACK=30.")
+
+    # Date range controls:
+    # - FIXED_START_DATE and FIXED_END_DATE (YYYY-MM-DD) define an explicit window.
+    # - If FIXED_END_DATE is set and FIXED_START_DATE is omitted, start_dt = end_dt - DAYS_BACK.
+    # - If FIXED_END_DATE is unset, end_dt = now and start_dt = end_dt - DAYS_BACK.
+    fixed_end = os.environ.get("FIXED_END_DATE")
+    fixed_start = os.environ.get("FIXED_START_DATE")
+    if fixed_end:
+        end_dt = datetime.strptime(fixed_end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        start_dt = (
+            datetime.strptime(fixed_start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if fixed_start
+            else end_dt - timedelta(days=cfg.days_back)
+        )
+    else:
+        end_dt = utc_now()
+        start_dt = end_dt - timedelta(days=cfg.days_back)
     date_str = end_dt.strftime("%Y-%m-%d")
 
     print(f"[Ingestion] Requested date range: {start_dt.date().isoformat()} to {end_dt.date().isoformat()} (UTC)")
@@ -322,8 +436,12 @@ def main() -> None:
         df["ticker"] = ticker
         article_frames.append(df)
 
-    articles_df = pd.concat(
-        article_frames, ignore_index=True) if article_frames else pd.DataFrame()
+    articles_df = pd.concat(article_frames, ignore_index=True) if article_frames else pd.DataFrame()
+    # Diagnostic: actual article date range returned (may be narrower than requested)
+    if not articles_df.empty and "seendate" in articles_df.columns:
+        art_min = articles_df["seendate"].min()
+        art_max = articles_df["seendate"].max()
+        print(f"[Ingestion] GDELT article date range in output: {pd.Timestamp(art_min).date()} to {pd.Timestamp(art_max).date()}")
     articles_path = out_dir / "gdelt_articles.csv"
     archive_if_exists(articles_path, archive_dir, date_str, "gdelt_articles")
     articles_df.to_csv(articles_path, index=False)
@@ -332,8 +450,7 @@ def main() -> None:
     # --- Fetch prices ---
     tickers = list(MAG7.values())
     print(f"[Prices] Fetching daily OHLCV for {len(tickers)} tickers ...")
-    prices_df = fetch_prices_daily(
-        tickers=tickers, start_dt=start_dt, end_dt=end_dt)
+    prices_df = fetch_prices_daily(tickers=tickers, start_dt=start_dt, end_dt=end_dt)
 
     prices_path = out_dir / "prices_daily.csv"
     archive_if_exists(prices_path, archive_dir, date_str, "prices_daily")
@@ -366,13 +483,11 @@ def main() -> None:
     if not articles_df.empty and "ticker" in articles_df.columns:
         print("\nArticle counts by ticker:")
         count_col = "url" if "url" in articles_df.columns else articles_df.columns[0]
-        print(articles_df.groupby("ticker")[
-              count_col].count().sort_values(ascending=False).to_string())
+        print(articles_df.groupby("ticker")[count_col].count().sort_values(ascending=False).to_string())
 
     if not prices_df.empty and "ticker" in prices_df.columns and "date" in prices_df.columns:
         print("\nPrice rows by ticker:")
-        print(prices_df.groupby("ticker")["date"].count(
-        ).sort_values(ascending=False).to_string())
+        print(prices_df.groupby("ticker")["date"].count().sort_values(ascending=False).to_string())
 
     print("\nDone.")
 
