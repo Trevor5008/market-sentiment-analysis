@@ -239,9 +239,14 @@ Run the complete pipeline: validation, cleaning, accumulation, and sentiment (GD
 
 **Optional ingestion date range (before pipeline run):**
 - `data_ingestion.py` supports `FIXED_START_DATE` and `FIXED_END_DATE` (format `YYYY-MM-DD`).
-- It also supports optional `DAYS_BACK` (positive integer), default `30`.
+- It also supports optional `DAYS_BACK` (positive integer), default from Config (e.g. `7`).
 - These env vars are only used when ingestion runs (`RUN_INGEST=1` in the pipeline, or when running `python scripts/data_ingestion.py` directly).
-- If `FIXED_END_DATE` is set and `FIXED_START_DATE` is omitted, ingestion uses `start_dt = end_dt - DAYS_BACK`.
+
+**Precedence and conflicts:**
+- **FIXED_END_DATE:** If set, `end_dt` is parsed from it; otherwise `end_dt = now`.
+- **FIXED_START_DATE:** If set, `start_dt` is parsed from it; otherwise `start_dt = end_dt - DAYS_BACK`.
+- **DAYS_BACK:** Used only when `FIXED_START_DATE` is omitted, to derive `start_dt` from `end_dt`.
+- When both `FIXED_START_DATE` and `FIXED_END_DATE` are set, the explicit window is used and `DAYS_BACK` is ignored for the date range. There is no check that the span matches `DAYS_BACK`; the user-defined window always takes precedence.
 
 **Linux/macOS:**
 ```bash
