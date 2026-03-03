@@ -52,6 +52,21 @@ market-sentiment-analysis/
 │   ├── dedupe_and_sentiment.py # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news t → prices t+1); run separately
 │   └── run_pipeline.sh        # validate → clean → accumulate → sentiment (GDELT); optional ingestion; join not run
+├── analysis/                   # Structured analysis notebooks (Sprint 4+)
+│   ├── analysis_template.ipynb  # Template for new hypothesis analyses
+│   ├── measurement/           # Sentiment validation, source bias (stabilize measurement layer)
+│   │   ├── sentiment_validation_v1.ipynb
+│   │   ├── sentiment_validation_v2.ipynb
+│   │   └── source_bias_analysis.ipynb
+│   ├── structural/            # Correlation mapping, lag analysis, regime stability
+│   │   ├── correlation_mapping.ipynb
+│   │   ├── lag_analysis.ipynb
+│   │   └── regime_stability.ipynb
+│   ├── price_alignment/       # Price–news join and alignment checks
+│   │   └── price_news_alignment.ipynb
+│   └── robustness/            # Source exclusion and sensitivity tests
+│       └── source_exclusion_tests.ipynb
+├── models/                     # (Future) Modeling notebooks and artifacts
 ├── notebooks/                  # Exploratory notebooks (root)
 ├── docs/
 │   ├── architecture/           # Pipeline diagram and docs (pipeline.md, pipeline.svg)
@@ -81,6 +96,21 @@ market-sentiment-analysis/
 3. **Reproducibility**: Environment is defined in `environment.yml`; only canonical data files are tracked; everything else is regenerable from scripts.
 4. **Conda-only**: This project uses Conda (env `advds`). Virtual environments (venv) are not supported.
 5. **Shared utilities**: Common utilities (path helpers, etc.) are in the `msa` Python package under `src/msa/`.
+
+### Analysis Structure (Sprint 4+)
+
+Sprint 3 uncovered structural dataset distortion (e.g. source bias). Sprint 4 focuses on **stabilizing the measurement layer** before modeling: source weighting, median aggregation, and robustness checks. The `analysis/` folder is organized by analysis type:
+
+| Subdirectory | Purpose | Key notebooks |
+|--------------|---------|---------------|
+| `measurement/` | Sentiment validation, source bias analysis | `sentiment_validation_v1.ipynb`, `sentiment_validation_v2.ipynb`, `source_bias_analysis.ipynb` |
+| `structural/` | Correlation mapping, lag analysis, regime stability | `correlation_mapping.ipynb`, `lag_analysis.ipynb`, `regime_stability.ipynb` |
+| `price_alignment/` | Price–news join and alignment checks | `price_news_alignment.ipynb` |
+| `robustness/` | Source exclusion and sensitivity tests | `source_exclusion_tests.ipynb` |
+
+- **Template**: Use `analysis/analysis_template.ipynb` for new hypothesis analyses.
+- **Legacy EDA**: Sprint 2/3 notebooks remain under `docs/eda/sprint_*/notebooks/`.
+- **Future**: `models/` will hold modeling notebooks when the measurement layer is stabilized.
 
 ---
 
@@ -386,6 +416,8 @@ Use **cleaned** data only for EDA/analysis. See [EDA_Guidelines.md](../EDA_Guide
 - Document the script and any new outputs in this file and in the README if user-facing.
 
 **EDA / exploratory scripts:** Scripts that only support exploratory analysis (e.g. generate notebooks or one-off EDA) belong under `docs/eda/` with the related notebooks (e.g. `docs/eda/sprint_3/notebooks/` or a sprint-specific folder), not in `scripts/`. Keep `scripts/` for pipeline, validation, cleaning, and shared data-prep code.
+
+**Structured analysis notebooks (Sprint 4+):** Place new analysis notebooks in the appropriate `analysis/` subdirectory (`measurement/`, `structural/`, `price_alignment/`, `robustness/`) rather than under `docs/eda/`. Use `analysis/analysis_template.ipynb` as a starting point for hypothesis-driven analyses.
 
 ### Update the data snapshot log
 
