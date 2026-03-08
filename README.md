@@ -83,6 +83,21 @@ market-sentiment-analysis/
 │   ├── dedupe_and_sentiment.py  # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news day t → prices day t+1)
 │   └── run_pipeline.sh        # Full pipeline: validate → clean → accumulate → sentiment; optional ingestion (RUN_INGEST=1). Join (build_gdelt_ohlcv_join.py) is separate.
+├── analysis/                  # Structured analysis notebooks (Sprint 4+)
+│   ├── analysis_template.ipynb  # Template for new hypothesis analyses
+│   ├── measurement/           # Sentiment validation and source bias
+│   │   ├── sentiment_validation_v1.ipynb
+│   │   ├── sentiment_validation_v2.ipynb
+│   │   └── source_bias_analysis.ipynb
+│   ├── structural/            # Correlation, lag, and regime analysis
+│   │   ├── correlation_mapping.ipynb
+│   │   ├── lag_analysis.ipynb
+│   │   └── regime_stability.ipynb
+│   ├── price_alignment/       # Price–news join and alignment checks
+│   │   └── price_news_alignment.ipynb
+│   └── robustness/            # Source exclusion and sensitivity tests
+│       └── source_exclusion_tests.ipynb
+├── models/                    # (Future) Modeling notebooks and artifacts
 ├── notebooks/                 # Exploratory notebooks (root)
 ├── docs/
 │   ├── architecture/          # Pipeline diagram (pipeline.md, pipeline.svg)
@@ -126,10 +141,15 @@ market-sentiment-analysis/
 - *Cleaned data may be overwritten, as it can always be regenerated from raw inputs*
 - *Cleaning logic is implemented in standalone scripts under `scripts/clean_*.py` and does not perform ingestion or validation.*
 4. Analysis (Exploratory Only)
-  - Conducted in notebooks under `notebooks/`
+  - Conducted in notebooks under `notebooks/` and `analysis/`
   - Uses cleaned datasets only
   - Focuses on visualization and pattern exploration
   - No modeling or inference claims at this stage
+  - **`analysis/`** provides a structured layout for Sprint 4+ work:
+    - `measurement/` — Sentiment validation, source bias analysis
+    - `structural/` — Correlation mapping, lag analysis, regime stability
+    - `price_alignment/` — Price–news alignment checks
+    - `robustness/` — Source exclusion and sensitivity tests
  
 ### Accumulation Strategy
 - Each ingestion run pulls data "up to today"
