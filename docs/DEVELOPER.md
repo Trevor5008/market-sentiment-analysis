@@ -51,6 +51,7 @@ market-sentiment-analysis/
 │   ├── add_sentiment.py       # Add sentiment scores (word-bank) to GDELT; used in pipeline
 │   ├── dedupe_and_sentiment.py # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news t → prices t+1); run separately
+│   ├── export_shared_datasets.py # Export CSV → Parquet for team sharing
 │   └── run_pipeline.sh        # validate → clean → accumulate → sentiment (GDELT); optional ingestion; join not run
 ├── analysis/                   # Structured analysis notebooks (Sprint 4+)
 │   ├── analysis_template.ipynb  # Template for new hypothesis analyses
@@ -379,6 +380,31 @@ Run after the pipeline. Requires `gdelt_articles_with_sentiment.csv` and `prices
 
 ```bash
 python scripts/build_gdelt_ohlcv_join.py
+```
+
+### Share datasets with the team
+
+Key processed datasets for sharing:
+
+| Dataset | Description |
+|---------|-------------|
+| `gdelt_articles_with_sentiment.csv` | GDELT articles with sentiment scores |
+| `prices_daily_accumulated.csv` | Daily OHLCV by ticker |
+| `gdelt_ohlcv_join.csv` | News–price join (article_date t → price_date t+1) |
+
+**Export to Parquet** for smaller files and faster loads:
+
+```bash
+python scripts/export_shared_datasets.py
+```
+
+Writes `.parquet` versions next to each CSV in `data/processed/`. Use path helpers with `fmt="parquet"`:
+
+```python
+from msa.utils.paths import get_joined_dataset, get_gdelt_with_sentiment, get_prices_daily_accumulated
+
+df = pd.read_parquet(get_joined_dataset("parquet"))
+# or CSV (default): get_joined_dataset() or get_joined_dataset("csv")
 ```
 
 ### Read cleaned data (e.g. in a notebook or script)
