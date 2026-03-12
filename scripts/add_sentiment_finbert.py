@@ -30,7 +30,7 @@ import argparse
 import sys
 import pandas as pd
 import numpy as np
-from pathlib import Path
+from msa.utils.paths import get_processed_data_path
 from tqdm import tqdm
 import torch
 
@@ -53,17 +53,13 @@ except ImportError:
     print("=" * 70)
     sys.exit(1)
 
-# Add project root to path for imports
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 # ============================================================
 # PATHS
 # ============================================================
 
-DEFAULT_INPUT = PROJECT_ROOT / "data" / "processed" / "gdelt_articles_accumulated.csv"
-DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "processed" / "gdelt_articles_with_sentiment.csv"
+DEFAULT_INPUT = get_processed_data_path() / "gdelt_articles_accumulated.csv"
+DEFAULT_OUTPUT = get_processed_data_path() / "gdelt_articles_with_sentiment.csv"
 
 # ============================================================
 # FINBERT SENTIMENT SCORING
@@ -182,7 +178,6 @@ def add_finbert_sentiment(df, text_col='title', batch_size=32, device="auto"):
         - sentiment_score: continuous score in [-1, +1]
         - sentiment_confidence: model confidence in [0, 1]
         - sentiment_label: 'positive', 'negative', or 'neutral'
-        - sentiment_present: True if not neutral (for compatibility)
     """
     print(f"\n{'='*60}")
     print(f"Adding FinBERT sentiment to {len(df):,} articles")
@@ -208,10 +203,6 @@ def add_finbert_sentiment(df, text_col='title', batch_size=32, device="auto"):
     df['sentiment_confidence'] = confidences
     df['sentiment_label'] = labels
     
-    # For compatibility with existing pipeline
-    # Consider non-neutral as "sentiment present"
-    df['sentiment_present'] = df['sentiment_label'] != 'neutral'
-    
     # Statistics
     print(f"\n{'='*60}")
     print("Sentiment Statistics:")
@@ -221,8 +212,6 @@ def add_finbert_sentiment(df, text_col='title', batch_size=32, device="auto"):
     print(f"Mean confidence: {confidences.mean():.3f}")
     print(f"\nLabel distribution:")
     print(df['sentiment_label'].value_counts())
-    print(f"\nSentiment present: {df['sentiment_present'].sum():,} / {len(df):,} "
-          f"({100*df['sentiment_present'].mean():.1f}%)")
     print(f"{'='*60}\n")
     
     return df

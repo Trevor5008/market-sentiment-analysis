@@ -22,9 +22,9 @@ SHARED_DATASETS = [
 ]
 
 DATE_COLS = {
-    "gdelt_articles_with_sentiment.csv": ["date", "article_date"],
+    "gdelt_articles_with_sentiment.csv": ["seendate", "date"],
     "prices_daily_accumulated.csv": ["date"],
-    "gdelt_ohlcv_join.csv": ["date", "article_date", "price_date"],
+    "gdelt_ohlcv_join.csv": ["seendate", "date", "article_date", "price_date"],
 }
 
 

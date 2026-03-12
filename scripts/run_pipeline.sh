@@ -5,8 +5,8 @@
 # Optional: RUN_INGEST=1 runs data_ingestion.py first (fetch raw GDELT + OHLCV, archive, manifest).
 #
 # Pipeline steps:
-#   1. GDELT: validate_gdelt → cleaning_gdelt → accumulate (url dedupe) → add_sentiment → dedupe_and_sentiment
-#      Outputs: gdelt_articles_clean.csv, gdelt_articles_accumulated.csv, gdelt_articles_with_sentiment.csv
+#   1. GDELT: validate_gdelt → cleaning_gdelt → accumulate → dedupe → add_sentiment_v2 (FinBERT)
+#      Outputs: gdelt_articles_clean.csv, gdelt_articles_accumulated.csv, gdelt_articles_deduped.csv, gdelt_articles_with_sentiment.csv
 #   2. OHLCV: ohlcv_validation → ohlcv_cleaning → accumulate (date,ticker dedupe)
 #      Outputs: prices_daily_clean.csv, prices_daily_accumulated.csv
 #
@@ -122,14 +122,18 @@ echo "Accumulating GDELT..."
   --key "url" \
   --sort "seendate,ticker"
 
-# Sentiment (word-bank) then dedupe + regenerate sentiment → gdelt_articles_with_sentiment.csv
-echo "RUNNING add_sentiment.py..."
-"$PYTHON_BIN" "$PROJECT_ROOT/scripts/add_sentiment.py" \
-  --input "$PROJECT_ROOT/data/processed/gdelt_articles_accumulated.csv" \
-  --output "$PROJECT_ROOT/data/processed/gdelt_articles_with_sentiment.csv"
+echo "RUNNING dedupe.py..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/dedupe.py"
 
-echo "RUNNING dedupe_and_sentiment.py..."
-"$PYTHON_BIN" "$PROJECT_ROOT/scripts/dedupe_and_sentiment.py"
+if [[ ! -f "$PROJECT_ROOT/data/processed/gdelt_articles_deduped.csv" ]]; then
+  echo "ERROR: data/processed/gdelt_articles_deduped.csv was not created"
+  exit 1
+fi
+
+echo "RUNNING add_sentiment_v2.py (FinBERT)..."
+"$PYTHON_BIN" "$PROJECT_ROOT/scripts/add_sentiment_v2.py" \
+  --input "$PROJECT_ROOT/data/processed/gdelt_articles_deduped.csv" \
+  --output "$PROJECT_ROOT/data/processed/gdelt_articles_with_sentiment.csv"
 
 if [[ ! -f "$PROJECT_ROOT/data/processed/gdelt_articles_with_sentiment.csv" ]]; then
   echo "ERROR: data/processed/gdelt_articles_with_sentiment.csv was not created"
