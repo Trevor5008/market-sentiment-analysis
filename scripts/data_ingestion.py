@@ -165,25 +165,40 @@ def _request_with_backoff(
     url: str,
     params: Dict[str, str],
     headers: Dict[str, str],
-    max_retries: int = 6,
-    timeout: int = 30,
+    max_retries: int = 12,
+    timeout: int = 45,
 ) -> requests.Response:
     last_err: Optional[Exception] = None
     for attempt in range(max_retries):
         try:
             resp = requests.get(url, params=params, headers=headers, timeout=timeout)
 
-            # Handle rate limiting explicitly
+            # Handle rate limiting (429) - GDELT is very sensitive; use longer backoff
             if resp.status_code == 429:
-                sleep_s = (2 ** attempt) + random.uniform(0, 0.5)
+                sleep_s = min(120, 15 * (2 ** attempt) + random.uniform(0, 5))
+                print(f"[GDELT] Rate limited (429). Waiting {sleep_s:.0f}s before retry {attempt + 1}/{max_retries}...")
                 time.sleep(sleep_s)
+                last_err = RuntimeError(f"Rate limited (429) after {attempt + 1} retries")
+                continue
+
+            # 5xx server errors - retry with backoff
+            if resp.status_code >= 500:
+                sleep_s = min(120, 10 * (2 ** attempt) + random.uniform(0, 3))
+                print(f"[GDELT] Server error {resp.status_code}. Waiting {sleep_s:.0f}s before retry...")
+                time.sleep(sleep_s)
+                last_err = RuntimeError(f"Server error {resp.status_code}")
                 continue
 
             resp.raise_for_status()
             return resp
+        except requests.exceptions.Timeout as e:
+            last_err = e
+            sleep_s = min(60, 5 * (2 ** attempt))
+            print(f"[GDELT] Timeout. Waiting {sleep_s:.0f}s before retry...")
+            time.sleep(sleep_s)
         except Exception as e:
             last_err = e
-            sleep_s = (2 ** attempt) + random.uniform(0, 0.5)
+            sleep_s = (2 ** attempt) + random.uniform(0, 1)
             time.sleep(sleep_s)
 
     raise RuntimeError(
@@ -342,7 +357,7 @@ def _fetch_gdelt_articles(
                 pass
 
         start_record += page_size
-        time.sleep(0.2)  # polite pacing
+        time.sleep(1.0)  # polite pacing - GDELT rate limits are strict
 
     df = pd.DataFrame(rows)
 
@@ -518,6 +533,9 @@ def main() -> None:
         df["ticker"] = ticker
         # Append the DataFrame to the article_frames list.
         article_frames.append(df)
+
+        # Pause between companies to avoid rate limits (7 companies × 2 passes = many requests)
+        time.sleep(3)
 
     # Concatenate the article DataFrames.
     articles_df = pd.concat(article_frames, ignore_index=True) if article_frames else pd.DataFrame()
