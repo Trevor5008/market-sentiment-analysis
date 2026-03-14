@@ -30,10 +30,13 @@ dependencies:
   - watchdog
   - pip
   - pip:
+      - torch>=2.6
+      - torchvision
+      - torchaudio
+      - --extra-index-url https://download.pytorch.org/whl/cu121
       - yfinance
       - pandas-market-calendars
       - exchange-calendars
       - curl-cffi
-      - torch
       - transformers
       - tqdm

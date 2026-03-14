@@ -29,9 +29,9 @@ reports/*.html
 !data/processed/.gitkeep
 
 # Tracked canonical snapshot files  
-!data/raw/gdelt_articles.csv
-!data/raw/prices_daily.csv
-!data/processed/gdelt_articles_clean.csv
+#!data/raw/gdelt_articles.csv
+#!data/raw/prices_daily.csv
+#!data/processed/gdelt_articles_clean.csv
 
 # C extensions
 *.so
