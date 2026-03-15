@@ -179,8 +179,8 @@ def _request_with_backoff(
     url: str,
     params: Dict[str, str],
     headers: Dict[str, str],
-    max_retries: Optional[int] = None,
-    timeout: int = 45,
+    max_retries: int = 3,
+    timeout: int = 20,
 ) -> requests.Response:
     if max_retries is None:
         try:
@@ -194,19 +194,12 @@ def _request_with_backoff(
 
             # Handle rate limiting (429) - GDELT is very sensitive; use longer backoff
             if resp.status_code == 429:
-                sleep_s = min(120, 15 * (2 ** attempt) + random.uniform(0, 5))
-                print(f"[GDELT] Rate limited (429). Waiting {sleep_s:.0f}s before retry {attempt + 1}/{max_retries}...")
-                time.sleep(sleep_s)
-                last_err = RuntimeError(f"Rate limited (429) after {attempt + 1} retries")
-                continue
-
-            # 5xx server errors - retry with backoff
-            if resp.status_code >= 500:
-                sleep_s = min(120, 10 * (2 ** attempt) + random.uniform(0, 3))
-                print(f"[GDELT] Server error {resp.status_code}. Waiting {sleep_s:.0f}s before retry...")
+                print(f"[GDELT] Rate limited (429); retrying in {2 ** attempt}s...")
+                sleep_s = (2 ** attempt) + random.uniform(0, 0.5)
                 time.sleep(sleep_s)
                 last_err = RuntimeError(f"Server error {resp.status_code}")
                 continue
+           
 
             resp.raise_for_status()
             return resp
@@ -216,6 +209,7 @@ def _request_with_backoff(
             print(f"[GDELT] Timeout. Waiting {sleep_s:.0f}s before retry...")
             time.sleep(sleep_s)
         except Exception as e:
+            print(f"Response failed with error: {e}. Attempt {attempt + 1} of {max_retries}.")
             last_err = e
             sleep_s = (2 ** attempt) + random.uniform(0, 1)
             time.sleep(sleep_s)
