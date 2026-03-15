@@ -36,6 +36,7 @@ dependencies:
       - --extra-index-url https://download.pytorch.org/whl/cu121
       - yfinance
       - pandas-market-calendars
+      - google-cloud-bigquery
       - exchange-calendars
       - curl-cffi
       - transformers

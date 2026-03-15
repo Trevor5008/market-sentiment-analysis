@@ -278,6 +278,16 @@ Run the complete pipeline: validation, cleaning, accumulation, and sentiment (GD
 - **DAYS_BACK:** Used only when `FIXED_START_DATE` is omitted, to derive `start_dt` from `end_dt`.
 - When both `FIXED_START_DATE` and `FIXED_END_DATE` are set, the explicit window is used and `DAYS_BACK` is ignored for the date range. There is no check that the span matches `DAYS_BACK`; the user-defined window always takes precedence.
 
+**GDELT BigQuery backend (when REST API is blocked):**
+- The GDELT REST API can be rate-limited or blocked. Use BigQuery instead:
+  ```bash
+  GDELT_SOURCE=bigquery python scripts/data_ingestion.py
+  # Or for fill_missing_dates:
+  ./scripts/fill_missing_dates.sh --gdelt-source bigquery
+  ```
+- Requires `google-cloud-bigquery` and [Google Cloud credentials](https://cloud.google.com/bigquery/docs/quickstarts/quickstart-client-libraries) (e.g. `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login`).
+- BigQuery free tier: 1 TB scanned/month; partitioned queries are cost-efficient.
+
 **Linux/macOS:**
 ```bash
 # Make the script executable (first time only)

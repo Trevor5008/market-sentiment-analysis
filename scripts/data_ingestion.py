@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import argparse
+import html
 import json
 import os
+import re
 import random
 import shutil
 import subprocess
@@ -14,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import requests
 
-SCRIPT_VERSION = "1.1.0" # 1.0.0 -> 1.1.0: Added last trading day clamping for GDELT API requests.
+SCRIPT_VERSION = "1.2.0"  # 1.1.0 -> 1.2.0: Added GDELT BigQuery backend (GDELT_SOURCE=bigquery).
 
 # Try to import yfinance and raise an error if it's not installed.
 try:
@@ -32,6 +35,17 @@ except ImportError as e:
     raise SystemExit(
         "Missing dependency: pandas_market_calendars. Install via `pip install pandas-market-calendars`."
     ) from e
+
+# BigQuery client is optional; required only when GDELT_SOURCE=bigquery.
+def _get_bigquery_client():
+    """Lazy import of BigQuery client. Raises SystemExit if GDELT_SOURCE=bigquery but client unavailable."""
+    try:
+        from google.cloud import bigquery
+        return bigquery.Client()
+    except ImportError as e:
+        raise SystemExit(
+            "GDELT_SOURCE=bigquery requires google-cloud-bigquery. Install via `pip install google-cloud-bigquery`."
+        ) from e
 
 # The MAG7 dict is a dictionary of company names and their tickers.
 MAG7: Dict[str, str] = {
@@ -168,29 +182,43 @@ def _request_with_backoff(
     max_retries: int = 3,
     timeout: int = 20,
 ) -> requests.Response:
+    if max_retries is None:
+        try:
+            max_retries = int(os.environ.get("GDELT_MAX_RETRIES", "12"))
+        except ValueError:
+            max_retries = 12
     last_err: Optional[Exception] = None
     for attempt in range(max_retries):
         try:
             resp = requests.get(url, params=params, headers=headers, timeout=timeout)
 
-            # Handle rate limiting explicitly
+            # Handle rate limiting (429) - GDELT is very sensitive; use longer backoff
             if resp.status_code == 429:
                 print(f"[GDELT] Rate limited (429); retrying in {2 ** attempt}s...")
                 sleep_s = (2 ** attempt) + random.uniform(0, 0.5)
                 time.sleep(sleep_s)
+                last_err = RuntimeError(f"Server error {resp.status_code}")
                 continue
            
 
             resp.raise_for_status()
             return resp
+        except requests.exceptions.Timeout as e:
+            last_err = e
+            sleep_s = min(60, 5 * (2 ** attempt))
+            print(f"[GDELT] Timeout. Waiting {sleep_s:.0f}s before retry...")
+            time.sleep(sleep_s)
         except Exception as e:
             print(f"Response failed with error: {e}. Attempt {attempt + 1} of {max_retries}.")
             last_err = e
-            sleep_s = (2 ** attempt) + random.uniform(0, 0.5)
+            sleep_s = (2 ** attempt) + random.uniform(0, 1)
             time.sleep(sleep_s)
 
+    hint = ""
+    if "429" in str(last_err) or (hasattr(last_err, "response") and getattr(last_err.response, "status_code", None) == 429):
+        hint = " Use --skip-gdelt to refresh prices only, or try GDELT_MAX_RETRIES=2 for quicker exit."
     raise RuntimeError(
-        f"Request failed after {max_retries} retries. Last error: {last_err}"
+        f"GDELT request failed after {max_retries} retries. Last error: {last_err}.{hint}"
     )
 
 # (private) Helper function for fetching GDELT articles
@@ -345,7 +373,7 @@ def _fetch_gdelt_articles(
                 pass
 
         start_record += page_size
-        time.sleep(0.2)  # polite pacing
+        time.sleep(1.0)  # polite pacing - GDELT rate limits are strict
 
     df = pd.DataFrame(rows)
 
@@ -354,6 +382,118 @@ def _fetch_gdelt_articles(
             df["seendate"], errors="coerce", utc=True)
 
     return df
+
+
+# ---- GDELT BigQuery backend ----
+GDELT_BQ_TABLE = "gdelt-bq.gdeltv2.gkg_partitioned"
+# Organization search terms per company (for V2Organizations LIKE). Meta needs extra aliases.
+_COMPANY_ORG_TERMS: Dict[str, List[str]] = {
+    "Apple": ["Apple", "AAPL"],
+    "Microsoft": ["Microsoft", "MSFT"],
+    "NVIDIA": ["NVIDIA", "NVDA"],
+    "Alphabet": ["Alphabet", "Google", "GOOGL", "GOOG"],
+    "Amazon": ["Amazon", "AMZN"],
+    "Meta Platforms": ["Meta Platforms", "Meta", "Facebook", "META", "FB"],
+    "Tesla": ["Tesla", "TSLA"],
+}
+
+
+def _parse_page_title_from_extras(extras: Optional[str]) -> str:
+    """Extract and unescape <<PAGE_TITLE>>...<</PAGE_TITLE>> from GKG Extras. Returns empty string if not found."""
+    if not extras or not isinstance(extras, str):
+        return ""
+    m = re.search(r"<<PAGE_TITLE>>(.*?)<<\/PAGE_TITLE>>", extras, re.DOTALL | re.IGNORECASE)
+    if not m:
+        return ""
+    try:
+        return html.unescape(m.group(1).strip())
+    except Exception:
+        return m.group(1).strip() or ""
+
+
+def _fetch_gdelt_bigquery(
+    company: str,
+    ticker: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    max_articles: int,
+) -> pd.DataFrame:
+    """
+    Fetch GDELT articles from BigQuery GKG for one company. Uses V2Organizations
+    for filtering. Returns DataFrame with url, seendate, title, domain, company, ticker.
+    """
+    client = _get_bigquery_client()
+    terms = _COMPANY_ORG_TERMS.get(company, [company, ticker])
+    # Build OR conditions: V2Organizations LIKE '%Apple%' OR V2Organizations LIKE '%AAPL%'
+    like_conditions = " OR ".join(
+        f"LOWER(COALESCE(V2Organizations,'')) LIKE LOWER('%{t.replace(chr(39), chr(39)+chr(39))}%')"
+        for t in terms
+    )
+    start_pt = start_dt.date().isoformat()
+    end_pt = end_dt.date().isoformat()
+    start_ts = start_dt.strftime("%Y%m%d%H%M%S")
+    end_ts = end_dt.strftime("%Y%m%d%H%M%S")
+
+    # Use _PARTITIONTIME for cost-efficient scans. Extras column may be Extras or empty.
+    query = f"""
+    SELECT
+        DocumentIdentifier AS url,
+        DATE AS date_raw,
+        SourceCommonName AS domain,
+        COALESCE(Extras, '') AS extras
+    FROM `{GDELT_BQ_TABLE}`
+    WHERE _PARTITIONTIME >= TIMESTAMP("{start_pt}")
+      AND _PARTITIONTIME <= TIMESTAMP("{end_pt}")
+      AND DATE >= {start_ts}
+      AND DATE <= {end_ts}
+      AND ({like_conditions})
+    ORDER BY DATE
+    LIMIT {max_articles}
+    """
+    try:
+        df = client.query(query).result().to_dataframe(create_bqstorage_client=False)
+    except Exception as e:
+        if "Unrecognized name: Extras" in str(e) or "Extras" in str(e):
+            # Fallback: table may use different column name or lack Extras
+            query_no_extras = f"""
+            SELECT
+                DocumentIdentifier AS url,
+                DATE AS date_raw,
+                SourceCommonName AS domain
+            FROM `{GDELT_BQ_TABLE}`
+            WHERE _PARTITIONTIME >= TIMESTAMP("{start_pt}")
+              AND _PARTITIONTIME <= TIMESTAMP("{end_pt}")
+              AND DATE >= {start_ts}
+              AND DATE <= {end_ts}
+              AND ({like_conditions})
+            ORDER BY DATE
+            LIMIT {max_articles}
+            """
+            df = client.query(query_no_extras).result().to_dataframe(create_bqstorage_client=False)
+            df["extras"] = ""
+        else:
+            raise
+
+    if df.empty:
+        df = pd.DataFrame(columns=["url", "seendate", "title", "domain", "company", "ticker"])
+        return df
+
+    df["seendate"] = pd.to_datetime(df["date_raw"].astype(str), format="%Y%m%d%H%M%S", errors="coerce")
+    df["title"] = df.get("extras", pd.Series(dtype=object)).apply(_parse_page_title_from_extras)
+    # Fallback title for FinBERT when PAGE_TITLE not in Extras
+    missing_title = df["title"].fillna("").eq("")
+    if missing_title.any():
+        df.loc[missing_title, "title"] = df.loc[missing_title, "url"].astype(str).str[:120]
+    df["company"] = company
+    df["ticker"] = ticker
+    for col in ["description", "language", "sourceCountry", "socialimage"]:
+        if col not in df.columns:
+            df[col] = ""
+    if "domain" not in df.columns:
+        df["domain"] = ""
+    df = df[["url", "seendate", "title", "description", "language", "domain", "sourceCountry", "socialimage", "company", "ticker"]]
+    return df
+
 
 # Helper function for fetching daily prices from yfinance.
 def fetch_prices_daily(
@@ -441,8 +581,19 @@ def _get_date_range(cfg: Config) -> tuple[datetime, datetime]:
         start_dt = end_dt - timedelta(days=cfg.days_back)
     return start_dt, end_dt
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Ingest GDELT articles and OHLCV prices.")
+    parser.add_argument(
+        "--skip-gdelt",
+        action="store_true",
+        help="Skip GDELT fetch; keep existing gdelt_articles.csv and refresh prices only. Requires data/raw/gdelt_articles.csv to exist.",
+    )
+    return parser.parse_args()
+
+
 # Main function for the data ingestion script.
 def main() -> None:
+    args = _parse_args()
     cfg = Config()
     project_root = get_project_root()
     out_dir = (project_root / cfg.out_dir).resolve()
@@ -469,61 +620,73 @@ def main() -> None:
         print(f"[Ingestion] GDELT end clamped to last trading day {gdelt_end_dt.date().isoformat()} (requested {end_dt.date().isoformat()})")
     # Print the requested date range.
     print(f"[Ingestion] Requested date range: {start_dt.date().isoformat()} to {end_dt.date().isoformat()} (UTC)")
-    # Set the headers for the GDELT API request.
-    headers = {"User-Agent": cfg.user_agent}
+    articles_path = out_dir / "gdelt_articles.csv"
 
-    # Fetch news articles from GDELT.
-    # Per pass is the maximum number of articles to fetch per company.
-    per_pass = max(1, cfg.max_articles_per_company // 2)
-    # Create a list to store the article DataFrames.
-    article_frames = []
-    # For each company, fetch the articles for each ticker in MAG7 dict.
-    for company, ticker in MAG7.items():
-        # Set the base query for the GDELT API request.
-        base_query = f"""
+    if args.skip_gdelt:
+        if not articles_path.exists():
+            raise SystemExit(
+                f"ERROR: --skip-gdelt requires existing {articles_path}. Run without --skip-gdelt first to fetch GDELT data."
+            )
+        print(f"[Ingestion] Skipping GDELT (--skip-gdelt); using existing {articles_path.name}")
+        articles_df = pd.read_csv(articles_path)
+    else:
+        use_bigquery = os.environ.get("GDELT_SOURCE", "").lower() == "bigquery"
+
+        if use_bigquery:
+            print("[GDELT] Using BigQuery backend (GDELT_SOURCE=bigquery)")
+            article_frames = []
+            for company, ticker in MAG7.items():
+                print(f"[GDELT] Fetching articles for {company} ({ticker}) from BigQuery ...")
+                df = _fetch_gdelt_bigquery(
+                    company=company,
+                    ticker=ticker,
+                    start_dt=start_dt,
+                    end_dt=gdelt_end_dt,
+                    max_articles=cfg.max_articles_per_company,
+                )
+                if not df.empty and "url" in df.columns:
+                    df = df.drop_duplicates(subset=["url"], keep="last").reset_index(drop=True)
+                article_frames.append(df)
+            articles_df = pd.concat(article_frames, ignore_index=True) if article_frames else pd.DataFrame()
+        else:
+            # REST API backend
+            headers = {"User-Agent": cfg.user_agent}
+            per_pass = max(1, cfg.max_articles_per_company // 2)
+            article_frames = []
+            for company, ticker in MAG7.items():
+                base_query = f"""
         ("{company}" OR {ticker}) (stock OR shares OR earnings OR revenue)
         """
-        # If the company is in the COMPANY_QUERY_OVERRIDES dict, use the override query.
-        query = COMPANY_QUERY_OVERRIDES.get(company, base_query)
-        print(f"[GDELT] Fetching articles for {company} ({ticker}) [oldest then newest] ...")
+                query = COMPANY_QUERY_OVERRIDES.get(company, base_query)
+                print(f"[GDELT] Fetching articles for {company} ({ticker}) [oldest then newest] ...")
 
-        # Fetch the articles for the company in oldest then newest order.
-        df_old = _fetch_gdelt_articles(
-            query=query,
-            start_dt=start_dt,
-            end_dt=gdelt_end_dt,
-            page_size=cfg.page_size,
-            max_articles=per_pass,
-            headers=headers,
-            sort_order="dateasc",
-        )
+                df_old = _fetch_gdelt_articles(
+                    query=query,
+                    start_dt=start_dt,
+                    end_dt=gdelt_end_dt,
+                    page_size=cfg.page_size,
+                    max_articles=per_pass,
+                    headers=headers,
+                    sort_order="dateasc",
+                )
+                df_new = _fetch_gdelt_articles(
+                    query=query,
+                    start_dt=start_dt,
+                    end_dt=gdelt_end_dt,
+                    page_size=cfg.page_size,
+                    max_articles=per_pass,
+                    headers=headers,
+                    sort_order="datedesc",
+                )
+                df = pd.concat([df_old, df_new], ignore_index=True)
+                if not df.empty and "url" in df.columns:
+                    df = df.drop_duplicates(subset=["url"], keep="last").reset_index(drop=True)
+                df["company"] = company
+                df["ticker"] = ticker
+                article_frames.append(df)
+                time.sleep(3)
 
-        # Fetch the articles for the company in newest then oldest order.
-        df_new = _fetch_gdelt_articles(
-            query=query,
-            start_dt=start_dt,
-            end_dt=gdelt_end_dt,
-            page_size=cfg.page_size,
-            max_articles=per_pass,
-            headers=headers,
-            sort_order="datedesc",
-        )
-
-        # Concatenate the old and new article DataFrames.
-        df = pd.concat([df_old, df_new], ignore_index=True)
-
-        # If the DataFrame is not empty and the url column exists, drop duplicate URLs and reset the index.
-        if not df.empty and "url" in df.columns:
-            df = df.drop_duplicates(subset=["url"], keep="last").reset_index(drop=True)
-
-        # Add the company and ticker columns to the DataFrame.
-        df["company"] = company
-        df["ticker"] = ticker
-        # Append the DataFrame to the article_frames list.
-        article_frames.append(df)
-
-    # Concatenate the article DataFrames.
-    articles_df = pd.concat(article_frames, ignore_index=True) if article_frames else pd.DataFrame()
+            articles_df = pd.concat(article_frames, ignore_index=True) if article_frames else pd.DataFrame()
 
     # If the DataFrame is not empty and the seendate column exists, print the minimum and maximum seendate dates.
     if not articles_df.empty and "seendate" in articles_df.columns:
@@ -531,13 +694,13 @@ def main() -> None:
         art_max = articles_df["seendate"].max()
         print(f"[Ingestion] GDELT article date range in output: {pd.Timestamp(art_min).date()} to {pd.Timestamp(art_max).date()}")
 
-    # Create the full path for the articles DataFrame.
-    articles_path = out_dir / "gdelt_articles.csv"
-    # Archive the articles DataFrame if it exists.
-    _archive_if_exists(articles_path, archive_dir, date_str, "gdelt_articles")
-    # Write the articles DataFrame to the articles path.
-    articles_df.to_csv(articles_path, index=False)
-    print(f"[OK] Wrote {len(articles_df):,} rows -> {articles_path}")
+    # Archive and write articles only when we fetched new GDELT data.
+    if not args.skip_gdelt:
+        _archive_if_exists(articles_path, archive_dir, date_str, "gdelt_articles")
+        articles_df.to_csv(articles_path, index=False)
+        print(f"[OK] Wrote {len(articles_df):,} rows -> {articles_path}")
+    else:
+        print(f"[OK] Kept existing {articles_path.name} ({len(articles_df):,} rows)")
 
     # Fetch daily prices from yfinance.
     # Get the tickers from the MAG7 dict.
@@ -559,20 +722,23 @@ def main() -> None:
     manifest_path = snapshots_dir / f"run_manifest_{date_str}.json"
     # Create the manifest dictionary.
     manifest = {
-        # The timestamp of the run.
         "timestamp": end_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "requested_range": {
             "start_date": start_dt.date().isoformat(),
             "end_date": end_dt.date().isoformat(),
         },
-        "tickers_covered": tickers, # The tickers covered by the run.
+        "tickers_covered": tickers,
         "row_counts": {
-            "gdelt_articles": int(len(articles_df)), # The number of articles covered by the run.
-            "prices_daily": int(len(prices_df)), # The number of prices covered by the run.
+            "gdelt_articles": int(len(articles_df)),
+            "prices_daily": int(len(prices_df)),
         },
-        "script_version": SCRIPT_VERSION, # The version of the script.
-        "git_commit": get_git_short_hash(project_root), # The git commit hash of the script.
-        "notes": "", # The notes for the run.
+        "script_version": SCRIPT_VERSION,
+        "git_commit": get_git_short_hash(project_root),
+        "gdelt_skipped": args.skip_gdelt,
+        "gdelt_source": os.environ.get("GDELT_SOURCE", "rest"),
+        "notes": "GDELT skipped (--skip-gdelt)" if args.skip_gdelt else (
+            "GDELT from BigQuery" if os.environ.get("GDELT_SOURCE", "").lower() == "bigquery" else ""
+        ),
     }
     # Write the manifest to the manifest path.
     with open(manifest_path, "w", encoding="utf-8") as f:
