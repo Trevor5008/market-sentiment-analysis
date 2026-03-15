@@ -117,6 +117,7 @@ def main() -> int:
     parser.add_argument("--chunk-days", type=int, default=14, help="Days per ingestion chunk (default: 14)")
     parser.add_argument("--source", choices=["join", "accumulated"], default="join", help="Source for observed dates")
     parser.add_argument("--delay-between-chunks", type=int, default=30, help="Seconds to wait between chunks (default: 30, helps avoid GDELT rate limits)")
+    parser.add_argument("--gdelt-source", choices=["rest", "bigquery"], default=None, help="GDELT data source (default: rest). Use bigquery when REST API is blocked.")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -173,6 +174,8 @@ def main() -> int:
             "FIXED_END_DATE": end_str,
             "RUN_INGEST": "1",
         }
+        if args.gdelt_source:
+            env["GDELT_SOURCE"] = args.gdelt_source
 
         # data_ingestion uses Config; we can't easily override max_articles without code change.
         # Run data_ingestion

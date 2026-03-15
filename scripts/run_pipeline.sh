@@ -63,7 +63,9 @@ EOF
 RUN_INGEST="${RUN_INGEST:-0}" # REQUIRED for accumulation component (dependency)
 if [[ "$RUN_INGEST" == "1" ]]; then
   echo "RUNNING data_ingestion.py..."
-  python "$PROJECT_ROOT/scripts/data_ingestion.py"
+  INGEST_ARGS=()
+  [[ "${SKIP_GDELT:-0}" == "1" ]] && INGEST_ARGS+=(--skip-gdelt)
+  python "$PROJECT_ROOT/scripts/data_ingestion.py" "${INGEST_ARGS[@]}"
   # Verify a run manifest was created (ingestion names it by end_dt, not today)
   MANIFEST_DIR="$PROJECT_ROOT/data/raw/snapshots"
   LATEST_MANIFEST=$(ls -t "$MANIFEST_DIR"/run_manifest_*.json 2>/dev/null | head -1)
