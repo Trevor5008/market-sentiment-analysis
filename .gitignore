@@ -16,6 +16,7 @@ data/raw/*
 data/processed/*
 data/raw/archive/*
 data/raw/snapshots/*
+data/audits/*
 
 # Validation reports (local artifacts; regenerate by running validation scripts)
 docs/validation/*
