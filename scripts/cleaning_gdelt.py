@@ -128,15 +128,18 @@ def deduplicate_by_headline(df: pd.DataFrame, title_col: str = "title", date_col
     print(f"  Removed {removed:,} duplicate headlines (same story, different outlets)")
     return df
 def filter_lang(df: pd.DataFrame, lang: str = "English") -> pd.DataFrame:
+    """Keep rows where language is the target or missing/empty (e.g. BigQuery has no language)."""
     df = df.copy()
     if "language" not in df.columns:
-        print("Warning: cannot find language columns")
+        print("Warning: cannot find language column")
         return df
     before = len(df)
-    df = df[df["language"] ==  lang]
+    # Keep target language OR missing/empty (BigQuery GKG does not provide language; treat as keep)
+    lang_ = df["language"].fillna("").astype(str).str.strip()
+    mask = (lang_ == lang) | (lang_ == "")
+    df = df[mask]
     removed = before - len(df)
-
-    print(f"  Removed {removed:,} non-{lang} articles")
+    print(f"  Removed {removed:,} non-{lang} articles (kept empty-language rows)")
     return df
 
 

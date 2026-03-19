@@ -79,12 +79,15 @@ def build_join(
     ohlcv_path = Path(ohlcv_path)
     output_path = Path(output_path)
 
-    # Load
-    gdelt = pd.read_csv(gdelt_path, parse_dates=["seendate"])
+    # Load (seendate can be mixed TZ/naive from REST vs BigQuery; normalize then parse as UTC)
+    gdelt = pd.read_csv(gdelt_path)
     ohlcv = pd.read_csv(ohlcv_path, parse_dates=["date"])
 
+    seendate_str = gdelt["seendate"].astype(str).str.replace(r"\+00:00$", "", regex=True)
+    gdelt["seendate"] = pd.to_datetime(seendate_str, utc=True, errors="coerce")
+    gdelt = gdelt.dropna(subset=["seendate"])
     # Article date (date only, no time)
-    gdelt["article_date"] = pd.to_datetime(gdelt["seendate"]).dt.tz_localize(None).dt.normalize()
+    gdelt["article_date"] = gdelt["seendate"].dt.tz_localize(None).dt.normalize()
 
     # Trading day range: from min article date to max ohlcv date (add buffer for "next" day)
     art_min = gdelt["article_date"].min()
