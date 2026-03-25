@@ -16,6 +16,7 @@ data/raw/*
 data/processed/*
 data/raw/archive/*
 data/raw/snapshots/*
+data/audits/*
 
 # Validation reports (local artifacts; regenerate by running validation scripts)
 docs/validation/*
@@ -236,3 +237,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+<<<<<<< HEAD
+data/processed/
+data/raw/
+=======
+!data/processed/gdelt_ohlcv_join_finbert.parquet
+>>>>>>> 6f90785 (Add FinBERT v2 re-scoring and correlation mapping analysis)
