@@ -1,5 +1,7 @@
 # Metric Definitions
 
+Short guide for the team: **baseline** dispersion/correlation terms, **regression & inference** (hypothesis notebooks), and **time-based validation** / **OOS** metrics (e.g. `05-hyp-sentiment-modifier.ipynb`).
+
 ## Baseline
 ```python
 MIN_TICKERS = 5 # minimum tickers req'd for dispersion calculation
@@ -90,4 +92,92 @@ Share of variance in $y$ **explained** by the fitted linear model **in the sampl
 A **resampling** null: repeatedly **shuffle** one variable (holding others fixed) and recompute a test statistic (e.g. correlation or regression coefficient). 
 - The **p-value** is the fraction of permutations where the statistic is at least as extreme as observed.
     - Useful when parametric assumptions are doubtful.
+
+### Cluster-robust standard errors
+
+**Clustering** allows correlation of the regression error **within a group** (e.g. all articles on the same calendar `price_date`, or all rows for the same `ticker`). Standard errors are adjusted so that **inference is asymptotically valid** when errors are independent **across clusters** but not necessarily within them.
+
+- One-way clustering: a single grouping column (e.g. date *or* ticker).
+- **Two-way** clustering (e.g. date **and** ticker) is stricter and often implemented in specialized packages when software supports it.
+
+Contrast with **HC1**: HC1 addresses **heteroskedasticity** (unequal variance) but still treats observations as independent unless you add clustering.
+
+---
+
+## Time-based validation & forecast metrics (reference)
+
+Terms below support **`05-hyp-sentiment-modifier.ipynb`** (walk-forward with rolling training windows) and related notebooks. They describe **how** we evaluate predictions over time, not project-specific column names.
+
+### In-sample vs out-of-sample (OOS)
+
+- **In-sample:** The model is **fit and evaluated on the same rows** (or the same time period). Metrics can look **too good** because the model has already “seen” those outcomes.
+- **Out-of-sample (OOS):** The model is **fit only on past data** and evaluated on **future (or held-out) rows** that were **not** used in estimation. This better reflects **forward** use but is still **not** the same as live trading (no fills, costs, etc.).
+
+### Walk-forward validation
+
+A **time-ordered** procedure: move forward through the calendar **one test step at a time** (e.g. one `price_date`), each time **re-fitting** the model on **training history** and scoring **only the next period(s)**. This mimics **sequence**: at each step you only use information available **before** the test date.
+
+- Avoids random train/test splits that **shuffle** time and leak **future** information into training.
+
+### Rolling vs expanding training window
+
+Both are common **training sets** in walk-forward work:
+
+| Style | Training data before test day $t$ | Typical use |
+|--------|-------------------------------------|-------------|
+| **Expanding** | **All** history strictly before $t$ | Maximum data; early periods have small train sets; later periods weight the **distant** past equally with the recent past. |
+| **Rolling** (sliding) | Only the **last $W$** distinct time periods (e.g. last $W$ trading days) before $t$ | Emphasizes a **recent** regime; drops old data; $W$ must be chosen explicitly. |
+
+In **`05`**, `USE_EXPANDING_WINDOW` switches between these ideas. The choice affects **non-stationarity**: relationships that drift over time may favor a **rolling** window.
+
+### “Honest” threshold / avoiding leakage (example: `neg_extreme`)
+
+If a rule uses a **cutoff** derived from the data (e.g. bottom 10% of `sentiment_score` **among negative articles**), recomputing that cutoff using **both train and test** rows from the **same fold** leaks information from the **future** into training.
+
+An **honest** walk-forward fold:
+
+1. Compute the quantile (or rule) **only on the training slice** for that step.
+2. Apply the **same numeric threshold** to **test** rows.
+
+That keeps the evaluation order aligned with **real-time**: you only know today’s distribution of scores **after** seeing the past, not the future.
+
+### OOS $R_2$ (out-of-sample coefficient of determination)
+
+For a test vector $y$ and predictions $\hat{y}$, OOS $R^2$ compares the model’s MSE to the MSE of predicting the **training-sample mean** $\bar{y}_{\text{train}}$ on the test set (common sklearn definition):
+
+- Values **$\le 0$** mean the model’s errors are **no better** (or worse) than a trivial constant predictor from train—**common** in noisy financial returns at short horizons.
+- **Do not** interpret OOS $R^2$ like in-sample $R^2$; negative values are informative, not “bugs.”
+
+### RMSE (root mean squared error)
+
+$\text{RMSE} = \sqrt{\frac{1}{n}\sum_i (y_i - \hat{y}_i)^2}$ in the **evaluation** set (here, OOS). Same units as $y$ (e.g. daily returns). **Lower** is better; use to **compare models**, not as an absolute “good/bad” without a baseline.
+
+### Brier score
+
+For **binary** outcomes $y_i \in \{0,1\}$ and predicted probabilities $\hat{p}_i = P(y_i=1 \mid X_i)$:
+
+$$\text{Brier} = \frac{1}{n}\sum_i (y_i - \hat{p}_i)^2.$$
+
+- **0** = perfect calibration and sharpness; **0.25** is a naive baseline for a **marginal rate of 50%** (always predict 0.5). **Lower** is better.
+- Penalizes both **wrong** class calls and **overconfident** probabilities.
+
+Used in **`05`** for **logit** predictions of **down day** (`forward return < 0`) on the **OOS** slice.
+
+### Sign accuracy (directional hit rate)
+
+Share of test observations where **sign**$(\hat{y})$ matches **sign**$(y)$, often **restricted** to rows where $y \neq 0$ (returns of exactly zero make “direction” ambiguous).
+
+- **0.5** ≈ coin-flip on balanced up/down tests; **not** sufficient alone (a tiny positive return vs tiny negative matters economically).
+- Useful **diagnostic** alongside RMSE / Brier.
+
+### Calibration (probability forecasts)
+
+A model is **well calibrated** if, among all days where we predict “about $p$” chance of a down day, the **long-run frequency** of down days is **near $p$**.
+
+- A simple check: plot or correlate **predicted** mean probability of the event vs **realized** event rate over groups (e.g. per walk-forward test day in **`05`**), or use **reliability** curves for finer bins.
+- **ROC-AUC** ranks well; **Brier** and calibration address **absolute** probability levels.
+
+### Average marginal effects (logit)
+
+The **average marginal effect** summarizes how a **small change** in a predictor (or a discrete jump, e.g. 0→1) changes the **predicted probability** of the event, **averaged** over the estimation sample. Complements raw logit coefficients, which are on the **log-odds** scale. (Example: `get_margeff(at="overall")` in `statsmodels`.)
 
