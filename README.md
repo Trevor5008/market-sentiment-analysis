@@ -85,15 +85,17 @@ market-sentiment-analysis/
 │   ├── dedupe_and_sentiment.py  # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news day t → prices day t+1)
 │   └── run_pipeline.sh        # Full pipeline: validate → clean → accumulate → sentiment; optional ingestion (RUN_INGEST=1). Join (build_gdelt_ohlcv_join.py) is separate.
-├── analysis/                  # Structured analysis notebooks (Sprint 4+)
+├── analysis/                  # Structured analysis notebooks (Sprint 4+)o
 │   ├── analysis_template.ipynb  # Template for new analyses
+│   ├── tuning_reference.ipynb   # Reference: pipelines, grid/Optuna tuning, tree models (XGBoost, RF, DT), interpretability
 │   ├── risk_signal_findings.md  # Short written notes (e.g. negative-sentiment / risk thread)
 │   ├── hypotheses/            # Numbered hypothesis tests (dispersion, lag, neg. risk, momentum interaction)
 │   │   ├── 01-hyp_mag7_dispersion.ipynb
 │   │   ├── 02-hyp-sent_lag_return.ipynb
 │   │   ├── 03-hyp_neg_sent_risk.ipynb
 │   │   ├── 04-hyp_neg_sent_momentum.ipynb
-│   │   └── 05-hyp-sentiment-modifier.ipynb
+│   │   ├── 05-hyp-sentiment-modifier.ipynb
+│   │   └── 07-model_baseline.ipynb
 │   ├── measurement/           # Sentiment validation and source bias
 │   │   ├── sentiment_validation_v1.ipynb
 │   │   ├── sentiment_validation_v2.ipynb
@@ -155,7 +157,8 @@ market-sentiment-analysis/
   - Uses cleaned datasets only (often `data/processed/gdelt_ohlcv_join.csv` after running the join script)
   - Combines visualization, descriptive stats, and—where noted in notebooks—**exploratory** regression or classification (e.g. OLS with robust SEs, logistic models). These are **not** trading signals or causal claims; see [Scope & Non-Goals](#scope--non-goals) and [`docs/metrics.md`](docs/metrics.md).
   - **`analysis/`** layout:
-    - `hypotheses/` — Numbered hypothesis notebooks (dispersion, sentiment–lag, negative-sentiment risk, momentum interaction)
+    - `tuning_reference.ipynb` — Team reference for improving classifier performance (preprocessing pipelines, grid search, Optuna, XGBoost / Random Forest / decision trees, threshold tuning, SHAP/LIME). Use **time-ordered validation** and the **same targets/features** as the notebook you are extending (e.g. `structural/model_selection.ipynb` or hypotheses).
+    - `hypotheses/` — Numbered hypothesis notebooks (dispersion, sentiment–lag, negative-sentiment risk, momentum interaction). **06** is reserved for a teammate’s regime analysis notebook when it lands.
     - `measurement/` — Sentiment validation, source bias analysis
     - `structural/` — Correlation mapping, lag analysis, regime stability
     - `price_alignment/` — Price–news alignment checks

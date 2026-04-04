@@ -22,7 +22,9 @@ Target **architecture** for exploratory work (not a deployed production forecast
   - **Unstable** over time and across **extreme** definitions in `04` 
       - **OOS** linear **R²** is poor in `05` walk-forward (prefer **median** / **IQR** of fold metrics, not raw mean R² when test-day counts are small).
 
-### Variable definitions (align with `04-hyp..` / `05-hyp..` under `analysis/hypotheses`)
+### Variable definitions (align with `04`–`07` under `analysis/hypotheses`)
+
+**Baseline implementation:** `07-model_baseline.ipynb` (`forward_return_1d ~ momentum_1d` on the negative-headline slice).
 
 | Symbol | Meaning |
 |--------|--------|
@@ -37,6 +39,8 @@ Universe and calendar window: **MAG7**, `WINDOW_START` / `WINDOW_END` in `src/ms
 **Baseline** (benchmark for return **level**):
 
 `forward_return_1d ~ momentum_1d`
+
+Notebook: [`analysis/hypotheses/07-model_baseline.ipynb`](../analysis/hypotheses/07-model_baseline.ipynb).
 
 **Advanced** (modifier spec; same linear predictors as `04` / `05`):
 
