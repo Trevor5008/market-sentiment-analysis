@@ -1,0 +1,17 @@
+Model Name,Features Used,ACC,AUC
+LogReg,Top Features,0.56,0.566
+LogReg,Full Features,0.543,0.554
+LGBM (Conservative),Full Features,0.591,0.579
+LGBM (Moderate),Full Features,0.587,0.517
+XGB (Conservative),Full Features,0.587,0.582
+XGB (Moderate),Full Features,0.584,0.578
+XGB (Conservative),Top Features,0.594,0.57
+Random Forest,Full Features,0.581,0.59
+Gradient Boosting,Full Features,0.583,0.578
+RandomizedSearchCV Tuned XGBoost,Full Features,0.55,0.607
+RandomizedSearchCV Tuned LGBM,Full Features,0.592,0.606
+RandomizedSearchCV Tuned XGBoost + LGBM,Full Features,0.598,0.607
+Optuna Tuned XGBoost,Expanded Features,0.55,0.602
+Optuna Tuned LGBM,Expanded Features,0.598,0.584
+Optuna Tuned XGBoost + LGBM,Expanded Features,0.607,0.598
+Walk-Forward XGBoost,Full Features,0.554,0.586
