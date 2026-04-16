@@ -157,13 +157,14 @@ market-sentiment-analysis/
   - Uses cleaned datasets only (often `data/processed/gdelt_ohlcv_join.csv` after running the join script)
   - Combines visualization, descriptive stats, and—where noted in notebooks—**exploratory** regression or classification (e.g. OLS with robust SEs, logistic models). These are **not** trading signals or causal claims; see [Scope & Non-Goals](#scope--non-goals) and [`docs/metrics.md`](docs/metrics.md).
   - **`analysis/`** layout:
-    - `tuning_reference.ipynb` — Team reference for improving classifier performance (preprocessing pipelines, grid search, Optuna, XGBoost / Random Forest / decision trees, threshold tuning, SHAP/LIME). Use **time-ordered validation** and the **same targets/features** as the notebook you are extending (e.g. `structural/model_selection.ipynb` or hypotheses).
+    - `tuning_reference.ipynb` — Team reference for improving classifier performance (preprocessing pipelines, grid search, Optuna, XGBoost / Random Forest / decision trees, threshold tuning, SHAP/LIME). Use **time-ordered validation** and the **same targets/features** as the notebook you are extending (e.g. [`models/00-model-selection-start.ipynb`](models/00-model-selection-start.ipynb) or hypotheses).
     - `hypotheses/` — Numbered hypothesis notebooks (dispersion, sentiment–lag, negative-sentiment risk, momentum interaction). **06** is reserved for a teammate’s regime analysis notebook when it lands.
     - `measurement/` — Sentiment validation, source bias analysis
     - `structural/` — Correlation mapping, lag analysis, regime stability
     - `price_alignment/` — Price–news alignment checks
     - `robustness/` — Source exclusion and sensitivity tests
- 
+  - **`models/`** — MAG7 classifier model selection: [`00-model-selection-start.ipynb`](models/00-model-selection-start.ipynb) (full reference), plus focused notebooks `01`–`04`. Pickles go to `models/model_selection_outputs/` (gitignored).
+
 ### Accumulation Strategy
 - Each ingestion run pulls data "up to today"
 - Raw outputs are date-stamped
