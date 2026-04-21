@@ -9,7 +9,7 @@ joined dataset used for analysis:
 **Ingestion → Validation → Cleaning → Accumulation → Sentiment → Join → Analysis**
 
 ## Diagram
-![Data pipeline lifecycle](new_pipeline.svg)
+![Data pipeline lifecycle](pipeline_diagram.svg)
 
 ## Pipeline Stages
 
