@@ -33,6 +33,7 @@ import numpy as np
 from msa.utils.paths import get_processed_data_path
 from tqdm import tqdm
 import torch
+from pathlib import Path
 
 # Check if transformers is installed
 try:

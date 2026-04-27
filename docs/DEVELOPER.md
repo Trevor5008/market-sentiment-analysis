@@ -30,10 +30,15 @@ market-sentiment-analysis/
 │   └── processed/              # Cleaned + accumulated outputs
 │       ├── gdelt_articles_clean.csv
 │       ├── gdelt_articles_accumulated.csv
-│       ├── gdelt_articles_with_sentiment.csv   # From pipeline (add_sentiment + dedupe_and_sentiment)
+│       ├── gdelt_articles_deduped.csv
+│       ├── gdelt_articles_with_sentiment.csv   # From pipeline (dedupe + add_sentiment_v2)
+│       ├── gdelt_articles_with_sentiment.parquet
 │       ├── prices_daily_clean.csv
 │       ├── prices_daily_accumulated.csv
+│       ├── prices_daily_accumulated.parquet
 │       ├── gdelt_ohlcv_join.csv                 # From build_gdelt_ohlcv_join.py (separate from pipeline)
+│       ├── gdelt_ohlcv_join.parquet
+│       ├── gdelt_ohlcv_join_finbert.parquet     # Canonical modeling join artifact
 │       └── *_manifest.json    # Accumulation manifests (gitignored)
 ├── src/
 │   └── msa/                    # Python package for shared utilities
@@ -48,10 +53,12 @@ market-sentiment-analysis/
 │   ├── ohlcv_validation.py    # Validate OHLCV; report to docs/validation/
 │   ├── ohlcv_cleaning.py      # Clean OHLCV → prices_daily_clean.csv
 │   ├── accumulate.py          # Merge new cleaned + existing accumulated; dedupe; sort by date
-│   ├── add_sentiment.py       # Add sentiment scores (word-bank) to GDELT; used in pipeline
-│   ├── dedupe_and_sentiment.py # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
+│   ├── dedupe.py              # Dedupe accumulated GDELT articles
+│   ├── add_sentiment_v2.py    # Pipeline sentiment step (FinBERT wrapper)
+│   ├── add_sentiment_finbert.py # FinBERT scoring implementation
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news t → prices t+1); run separately
-│   ├── export_shared_datasets.py # Export CSV → Parquet for team sharing
+│   ├── export_shared_datasets.py # Export CSV → Parquet and sync gdelt_ohlcv_join_finbert.parquet
+│   ├── fill_missing_dates.py  # Backfill date gaps and rerun join/export helpers
 │   └── run_pipeline.sh        # validate → clean → accumulate → sentiment (GDELT); optional ingestion; join not run
 ├── analysis/                   # Structured analysis notebooks (Sprint 4+)
 │   ├── analysis_template.ipynb  # Template for new hypothesis analyses
@@ -67,7 +74,13 @@ market-sentiment-analysis/
 │   │   └── price_news_alignment.ipynb
 │   └── robustness/            # Source exclusion and sensitivity tests
 │       └── source_exclusion_tests.ipynb
-├── models/                     # (Future) Modeling notebooks and artifacts
+├── models/                     # Model selection notebooks + outputs
+│   ├── 00-model-selection-start.ipynb
+│   ├── 01-model-selection-exploration.ipynb
+│   ├── 02-model-selection-baseline.ipynb
+│   ├── 03-model-selection-advanced.ipynb
+│   ├── 04-model-selection-evaluation.ipynb
+│   └── model_selection_outputs/ # Pickled outputs consumed by evaluation notebook
 ├── notebooks/                  # Exploratory notebooks (root)
 ├── docs/
 │   ├── architecture/           # Pipeline diagram and docs (pipeline.md, pipeline.svg)
@@ -144,22 +157,24 @@ Path resolution helpers for consistent project-root-relative paths across all sc
 ```python
 from msa.utils.paths import (
     get_project_root,
-    get_data_path,
+    get_data_root,
     get_raw_data_path,
     get_processed_data_path,
-    get_joined_dataset
+    get_joined_dataset,
+    get_joined_dataset_finbert,
 )
 
 # Get project root
 root = get_project_root()
 
 # Get data directories
-data_dir = get_data_path()
+data_dir = get_data_root()
 raw_dir = get_raw_data_path()
 processed_dir = get_processed_data_path()
 
-# Get the main joined dataset path
-join_path = get_joined_dataset()  # returns Path to gdelt_ohlcv_join.csv
+# Get joined dataset paths
+join_path = get_joined_dataset()  # default csv
+join_finbert_path = get_joined_dataset_finbert()  # default parquet
 ```
 
 **Usage in notebooks:**
@@ -184,10 +199,12 @@ Scripts can use either the `msa` package utilities or local `get_project_root()`
 | `ohlcv_validation.py` | Validate OHLCV schema, trading days, outliers; report only | `docs/validation/ohlcv_validation.md` |
 | `ohlcv_cleaning.py` | Normalize types, apply market calendar, fix logical prices, interpolate; overwrites output | `data/processed/prices_daily_clean.csv` |
 | `accumulate.py` | Merge new cleaned snapshot + existing accumulated; dedupe by key; sort by date; write manifest | `data/processed/gdelt_articles_accumulated.csv`, `prices_daily_accumulated.csv`, `*_manifest.json` |
-| `add_sentiment.py` | Add sentiment scores (word-bank lexicon) to GDELT; used by pipeline and by dedupe_and_sentiment | `data/processed/gdelt_articles_with_sentiment.csv` (when run standalone) |
-| `dedupe_and_sentiment.py` | Dedupe accumulated GDELT (URL + headline), then add sentiment; overwrites with_sentiment | `data/processed/gdelt_articles_with_sentiment.csv` |
+| `dedupe.py` | Dedupe accumulated GDELT by URL/headline rules | `data/processed/gdelt_articles_deduped.csv` |
+| `add_sentiment_v2.py` | Pipeline sentiment step; loads deduped GDELT and applies FinBERT scorer | `data/processed/gdelt_articles_with_sentiment.csv` |
+| `add_sentiment_finbert.py` | FinBERT model wrapper and batch scoring implementation | Used by `add_sentiment_v2.py` |
 | `build_gdelt_ohlcv_join.py` | Join GDELT (with sentiment) to OHLCV by next trading day (news t → prices t+1); NYSE calendar. **Not run by pipeline.** | `data/processed/gdelt_ohlcv_join.csv` |
-| `run_pipeline.sh` | GDELT: validate → clean → accumulate → add_sentiment → dedupe_and_sentiment. OHLCV: validate → clean → accumulate. Optional ingestion when `RUN_INGEST=1`. Does not run build_gdelt_ohlcv_join. | `gdelt_articles_with_sentiment.csv`, `prices_daily_accumulated.csv`, plus clean/accumulated outputs |
+| `export_shared_datasets.py` | Export shared CSV artifacts to Parquet and sync `gdelt_ohlcv_join_finbert.parquet` alias | `*.parquet` under `data/processed/` |
+| `run_pipeline.sh` | GDELT: validate → clean → accumulate → dedupe → add_sentiment_v2. OHLCV: validate → clean → accumulate. Optional ingestion when `RUN_INGEST=1`. Does not run build_gdelt_ohlcv_join. | `gdelt_articles_with_sentiment.csv`, `prices_daily_accumulated.csv`, plus clean/accumulated outputs |
 
 ### Important conventions
 
@@ -211,7 +228,7 @@ Scripts can use either the `msa` package utilities or local `get_project_root()`
 3. **Cleaning** (overwrites): `cleaning_gdelt.py`, `ohlcv_cleaning.py`  
    Read raw inputs → apply deterministic cleaning → overwrite `data/processed/*.csv`.
 
-4. **Accumulation + sentiment** (in pipeline): For GDELT, `run_pipeline.sh` runs `accumulate.py` (url dedupe), then `add_sentiment.py`, then `dedupe_and_sentiment.py`, producing `gdelt_articles_with_sentiment.csv`. For OHLCV, it runs `accumulate.py` (date,ticker dedupe) only.
+4. **Accumulation + sentiment** (in pipeline): For GDELT, `run_pipeline.sh` runs `accumulate.py`, then `dedupe.py`, then `add_sentiment_v2.py`, producing `gdelt_articles_with_sentiment.csv`. For OHLCV, it runs `accumulate.py` (date,ticker dedupe) only.
 
 5. **Join (separate)**: `build_gdelt_ohlcv_join.py` is **not** run by the pipeline. Run it when you need the price–news join table.
 
@@ -274,11 +291,27 @@ Or run the pipeline; it will check for `pandas`, `numpy`, and `pandas_market_cal
 
 ### 5. Run the pipeline
 
-The pipeline runs GDELT (validate → clean → accumulate → add_sentiment → dedupe_and_sentiment) and OHLCV (validate → clean → accumulate). It does **not** run `build_gdelt_ohlcv_join.py`; run that separately when you need the price–news join.
+The pipeline runs GDELT (validate → clean → accumulate → dedupe → add_sentiment_v2) and OHLCV (validate → clean → accumulate). It does **not** run `build_gdelt_ohlcv_join.py`; run that separately when you need the price–news join.
+
+**Operational note:** Parquet artifacts are already present under `data/processed/` for normal development/notebook use. Ingestion is optional and should be used only to refresh raw upstream data.
+
+- `RUN_INGEST=0` (default): use existing tracked/raw data, rebuild processed artifacts if needed.
+- `RUN_INGEST=1`: fetch new external GDELT/OHLCV data, archive previous raw files, and update manifests.
+
+**Mandatory post-refresh step for modeling reproducibility:**
+
+After any data refresh (especially with `RUN_INGEST=1`), run:
+
+```bash
+python scripts/build_gdelt_ohlcv_join.py
+python scripts/export_shared_datasets.py
+```
+
+This updates `gdelt_ohlcv_join.csv` and re-syncs Parquet artifacts (including `gdelt_ohlcv_join_finbert.parquet`) used by the model notebooks.
 
 Optional ingestion date range:
 - `data_ingestion.py` supports `FIXED_START_DATE` and `FIXED_END_DATE` (format `YYYY-MM-DD`).
-- It also supports optional `DAYS_BACK` (positive integer), default `30`.
+- It also supports optional `DAYS_BACK` (positive integer), default `7`.
 - These are read only when ingestion runs (`RUN_INGEST=1` in the pipeline, or direct `python scripts/data_ingestion.py`).
 - If only `FIXED_END_DATE` is set, ingestion derives start from `DAYS_BACK`.
 
@@ -324,9 +357,10 @@ python scripts/validate_gdelt.py
 python scripts/cleaning_gdelt.py
 python scripts/ohlcv_validation.py
 python scripts/ohlcv_cleaning.py
-python scripts/add_sentiment.py
-python scripts/dedupe_and_sentiment.py
+python scripts/dedupe.py
+python scripts/add_sentiment_v2.py
 python scripts/build_gdelt_ohlcv_join.py   # run after pipeline when join table is needed
+python scripts/export_shared_datasets.py
 ```
 
 ---
@@ -398,12 +432,18 @@ Key processed datasets for sharing:
 python scripts/export_shared_datasets.py
 ```
 
-Writes `.parquet` versions next to each CSV in `data/processed/`. Use path helpers with `fmt="parquet"`:
+Writes `.parquet` versions next to each CSV in `data/processed/` and syncs `gdelt_ohlcv_join_finbert.parquet` to the current join snapshot. Use path helpers with `fmt="parquet"`:
 
 ```python
-from msa.utils.paths import get_joined_dataset, get_gdelt_with_sentiment, get_prices_daily_accumulated
+from msa.utils.paths import (
+    get_joined_dataset,
+    get_joined_dataset_finbert,
+    get_gdelt_with_sentiment,
+    get_prices_daily_accumulated,
+)
 
 df = pd.read_parquet(get_joined_dataset("parquet"))
+df_model = pd.read_parquet(get_joined_dataset_finbert())  # canonical modeling join
 # or CSV (default): get_joined_dataset() or get_joined_dataset("csv")
 ```
 
@@ -482,6 +522,26 @@ The run manifest is written only when **ingestion** runs (e.g. `RUN_INGEST=1`). 
 
 ```bash
 RUN_INGEST=1 ./scripts/run_pipeline.sh
+```
+
+### GDELT ingestion timeouts / 429 rate limits
+
+The public GDELT REST API can intermittently timeout or return 429s. This is a known upstream issue and can happen even with normal usage.
+
+**Recommended mitigation settings:**
+
+```bash
+RUN_INGEST=1 GDELT_MAX_RETRIES=20 PAGE_SIZE=50 MAX_ARTICLES_PER_COMPANY=300 ./scripts/run_pipeline.sh
+```
+
+- `PAGE_SIZE=50` lowers per-request load.
+- `MAX_ARTICLES_PER_COMPANY=300` reduces bursty pagination.
+- `GDELT_MAX_RETRIES=20` gives backoff more room to recover.
+
+If REST still fails repeatedly, use BigQuery backend:
+
+```bash
+GDELT_SOURCE=bigquery python scripts/data_ingestion.py
 ```
 
 ### "data/raw/gdelt_articles.csv was not found" (or prices_daily.csv)

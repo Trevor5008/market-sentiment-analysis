@@ -566,6 +566,30 @@ def _apply_days_back_env(cfg: Config) -> None:
         except ValueError:
             raise SystemExit("Invalid DAYS_BACK value. Use a positive integer, e.g. DAYS_BACK=30.")
 
+
+def _apply_fetch_limits_env(cfg: Config) -> None:
+    """Apply optional fetch limit overrides from env vars."""
+    max_articles_env = os.environ.get("MAX_ARTICLES_PER_COMPANY")
+    if max_articles_env:
+        try:
+            cfg.max_articles_per_company = int(max_articles_env)
+            if cfg.max_articles_per_company <= 0:
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                "Invalid MAX_ARTICLES_PER_COMPANY value. Use a positive integer, e.g. MAX_ARTICLES_PER_COMPANY=2000."
+            )
+
+    page_size_env = os.environ.get("PAGE_SIZE")
+    if page_size_env:
+        try:
+            cfg.page_size = int(page_size_env)
+            # GDELT API max page size is 250; cap to safe range.
+            if cfg.page_size <= 0 or cfg.page_size > 250:
+                raise ValueError
+        except ValueError:
+            raise SystemExit("Invalid PAGE_SIZE value. Use an integer between 1 and 250.")
+
 def _get_date_range(cfg: Config) -> tuple[datetime, datetime]:
     """Get the date range from env vars and config. End date must be resolved first for DAYS_BACK fallback."""
     fixed_end = os.environ.get("FIXED_END_DATE")
@@ -605,6 +629,7 @@ def main() -> None:
 
     # Apply the DAYS_BACK environment variable to the config.
     _apply_days_back_env(cfg)
+    _apply_fetch_limits_env(cfg)
 
     # Get the date range from the config.
     start_dt, end_dt = _get_date_range(cfg)
