@@ -15,9 +15,17 @@ This repository is structured to support:
 - repeatable exploratory analysis
 - team-based development with clear process boundaries
 
+This repository is structured to support:
+- deterministic data ingestion
+- explicit data validation and cleaning steps
+- repeatable exploratory analysis
+- team-based development with clear process boundaries
+
 ## Table of Contents
+- [Research Questions](#research-questions)
 - [Project Goals](#project-goals)
 - [Scope & Non-Goals](#scope--non-goals)
+- [Preliminary Findings](#preliminary-findings)
 - [Repository Structure](#repository-structure)
 - [Data Lifecycle](#data-lifecycle)
 - [Documentation](#documentation)
@@ -25,6 +33,19 @@ This repository is structured to support:
 - [Workflow](#workflow)
 - [Contributing](#contributing)
 - [Notes](#notes)
+
+---
+
+## Research Questions
+
+This project is organized around four driving research questions:
+
+1. Do sentiment scores vary meaningfully across Magnificent Seven companies?
+2. Are negative sentiment signals associated with increased short-term risk or volatility?
+3. Does sentiment have stronger relationships with same-day or next-trading-day market movement?
+4. How sensitive are our results to data source coverage and article volume?
+
+These questions are explored through the numbered hypothesis notebooks in `analysis/hypotheses/` and supporting measurement and robustness analyses.
 
 ---
 
@@ -50,6 +71,21 @@ This repository is structured to support:
 - Claims of causality or financial advice
 
 ---
+
+## Preliminary Findings
+
+Full details are in `analysis/`, `docs/findings/`, and [`docs/capstone_final_report.pdf`](docs/capstone_final_report.pdf).
+
+**Source bias:** The sentiment signal is structurally dominated by a small number of sources, with the top domains accounting for a disproportionate share of all articles. Investment-oriented sources carry systematically higher average sentiment than traditional journalism outlets. This is a bias problem, not just a volume problem. Downstream analysis cannot be trusted until results survive source-exclusion robustness checks. See [`docs/source_bias_findings.md`](docs/source_bias_findings.md).
+
+**Sentiment dispersion vs. return dispersion (Hypothesis 01):** The direction of the relationship between cross-sectional sentiment variance and return dispersion is positive and consistent with the hypothesis, but the association is weak and inconclusive with the current dataset. Larger samples are needed before any conclusions can be drawn.
+
+**Sentiment as a lagging indicator (Hypothesis 02):** Sentiment does not appear to reliably predict next-day returns. The pattern observed is more consistent with news reacting to price movements than leading them.
+
+**Negative sentiment and momentum (Hypotheses 03 & 04):** Extreme negative sentiment shows a statistically significant association with downside movements and, notably, appears to **break and reverse momentum** — under extreme negative sentiment, prior positive momentum is associated with lower expected returns. This asymmetric behavior has shifted the team's focus toward sentiment as a **conditional risk indicator** rather than a standalone directional signal.
+
+> **Note:** All findings are exploratory. Analysis covers a two-year data window (Feb 2024 – Feb 2026) and no causality claims are made.
+
 
 ## Repository Structure
 ```text
@@ -85,7 +121,7 @@ market-sentiment-analysis/
 │   ├── dedupe_and_sentiment.py  # Dedupe accumulated GDELT + regenerate sentiment → gdelt_articles_with_sentiment.csv
 │   ├── build_gdelt_ohlcv_join.py # Join GDELT (with sentiment) to OHLCV (news day t → prices day t+1)
 │   └── run_pipeline.sh        # Full pipeline: validate → clean → accumulate → sentiment; optional ingestion (RUN_INGEST=1). Join (build_gdelt_ohlcv_join.py) is separate.
-├── analysis/                  # Structured analysis notebooks (Sprint 4+)o
+├── analysis/                  # Structured analysis notebooks (Sprint 4+)
 │   ├── analysis_template.ipynb  # Template for new analyses
 │   ├── tuning_reference.ipynb   # Reference: pipelines, grid/Optuna tuning, tree models (XGBoost, RF, DT), interpretability
 │   ├── risk_signal_findings.md  # Short written notes (e.g. negative-sentiment / risk thread)
@@ -108,17 +144,23 @@ market-sentiment-analysis/
 │   │   └── price_news_alignment.ipynb
 │   └── robustness/            # Source exclusion and sensitivity tests
 │       └── source_exclusion_tests.ipynb
-├── models/                    # (Future) Modeling notebooks and artifacts
+├── models/                    # MAG7 classifier model selection; pickles → models/model_selection_outputs/ (gitignored)
+│   └── 00-model-selection-start.ipynb  # Full reference; focused notebooks 01–04 alongside
 ├── notebooks/                 # Exploratory notebooks (root)
 ├── docs/
 │   ├── architecture/          # Pipeline diagram (pipeline.md, pipeline.svg)
 │   ├── eda/                   # EDA notebooks and summaries by sprint (e.g. sprint_3/notebooks/)
 │   ├── findings/              # Written findings (e.g. weekend_effect_analysis.md)
 │   ├── validation/            # Validation reports (gitignored; regenerated by scripts)
+│   ├── Capstone-1-Final-Report.pdf  # Final written report
+│   ├── Capstone-1-Poster.pdf      # Presentation poster
+│   ├── DEVELOPER.md           # Technical reference for developers
 │   ├── data_snapshot_log.md   # Log of canonical snapshot metadata
-│   ├── metrics.md             # Metric definitions; regression/inference; walk-forward & OOS metrics (see doc TOC)
 │   ├── ingestion_assumptions.md
-│   └── manifest_schema.json  # Schema for run manifests
+│   ├── manifest_schema.json   # Schema for run manifests
+│   ├── metrics.md             # Metric definitions; regression/inference; walk-forward & OOS metrics
+│   ├── model_spec.md          # Model specification and feature definitions
+│   └── source_bias_findings.md  # Source bias and domain quality analysis
 ├── pyproject.toml             # Python package configuration (msa package)
 ├── environment.yml            # Conda environment (advds) — single source of truth for dependencies
 ├── README.md
@@ -126,6 +168,7 @@ market-sentiment-analysis/
 ├── EDA_Guidelines.md          # Guardrails for EDA
 └── LICENSE
 ```
+
 ## Data Lifecycle
 1. Raw Data (Immutable)
 - Stored under `data/raw`
@@ -158,7 +201,7 @@ market-sentiment-analysis/
   - Combines visualization, descriptive stats, and—where noted in notebooks—**exploratory** regression or classification (e.g. OLS with robust SEs, logistic models). These are **not** trading signals or causal claims; see [Scope & Non-Goals](#scope--non-goals) and [`docs/metrics.md`](docs/metrics.md).
   - **`analysis/`** layout:
     - `tuning_reference.ipynb` — Team reference for improving classifier performance (preprocessing pipelines, grid search, Optuna, XGBoost / Random Forest / decision trees, threshold tuning, SHAP/LIME). Use **time-ordered validation** and the **same targets/features** as the notebook you are extending (e.g. [`models/00-model-selection-start.ipynb`](models/00-model-selection-start.ipynb) or hypotheses).
-    - `hypotheses/` — Numbered hypothesis notebooks (dispersion, sentiment–lag, negative-sentiment risk, momentum interaction). **06** is reserved for a teammate’s regime analysis notebook when it lands.
+    - `hypotheses/` — Numbered hypothesis notebooks (dispersion, sentiment–lag, negative-sentiment risk, momentum interaction). **06** is reserved for a teammate's regime analysis notebook when it lands.
     - `measurement/` — Sentiment validation, source bias analysis
     - `structural/` — Correlation mapping, lag analysis, regime stability
     - `price_alignment/` — Price–news alignment checks
@@ -175,9 +218,12 @@ market-sentiment-analysis/
 
 ## Documentation
 
+- **[`docs/capstone_final_report.pdf`](docs/Capstone-1-Final-Report.pdf)** — Final written capstone report.
+- **[`docs/Capstone-1-Poster.pdf`](docs/Capstone-1-Poster.pdf)** — Presentation poster summarizing the project.
 - **[`docs/metrics.md`](docs/metrics.md)** — Definitions for dispersion/correlation metrics used in structural analysis, plus a **reference** for statistics and ML terms used in hypothesis notebooks (e.g. **HC1** robust standard errors, **interaction** effects, **logistic regression**, **ROC-AUC**, **permutation tests**, **R²**).
 - **[`docs/architecture/`](docs/architecture/)** — Pipeline overview (`pipeline.md` / diagram).
 - **[`docs/ingestion_assumptions.md`](docs/ingestion_assumptions.md)** — Ingestion assumptions.
+- **[`docs/DEVELOPER.md`](docs/DEVELOPER.md)** — Technical reference for developers (setup, pipeline, scripts, common tasks).
 - **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — Collaboration and workflow.
 
 ---
@@ -419,4 +465,3 @@ Collaboration guidelines and workflow expectations are documented in
 - The project uses `pandas_market_calendars` for market calendar validation
 
 ---
-
