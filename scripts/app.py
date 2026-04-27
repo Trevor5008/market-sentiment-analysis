@@ -32,7 +32,7 @@ st.subheader("Columns")
 st.write(list(df.columns))
 
 st.subheader("Preview")
-st.dataframe(df.head(20), use_container_width=True)
+st.dataframe(df.head(20), height=600, width=1200)
 
 st.subheader("Model Selection Summary")
 
@@ -45,6 +45,7 @@ st.markdown("""
 - Q5–Q1 spread was approximately **0.6%–0.8% per day**
 """)
 
+# TODO: Add a table of the signal discovery table -> current hardcoded values
 signal_df = pd.DataFrame([
     {"Signal": "mom_1d", "Spearman rho": 0.167, "p_value": 0.0000, "Significant": "Yes"},
     {"Signal": "volume_z", "Spearman rho": 0.057, "p_value": 0.0386, "Significant": "Yes"},
@@ -54,8 +55,9 @@ signal_df = pd.DataFrame([
 ])
 
 st.write("Signal discovery")
-st.dataframe(signal_df, use_container_width=True)
+st.dataframe(signal_df, height=600, width=1200)
 
+# TODO: Add a table of the leaderboard table -> current hardcoded values
 leaderboard_df = pd.DataFrame([
     {"Target": "beat_market", "Model": "Tuned LightGBM (held-out)", "AUC": 0.6075, "Accuracy": 0.6013},
     {"Target": "beat_market", "Model": "Ensemble XGB+LGBM (held-out)", "AUC": 0.6070, "Accuracy": 0.5981},
@@ -65,8 +67,9 @@ leaderboard_df = pd.DataFrame([
 ])
 
 st.write("Top model results")
-st.dataframe(leaderboard_df, use_container_width=True)
+st.dataframe(leaderboard_df, height=600, width=1200)
 
+# TODO: Add a table of the top models for each target -> current hardcoded values
 st.markdown("""
 ### Interpretation
 - **Momentum is the primary signal**

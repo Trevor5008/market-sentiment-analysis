@@ -42,9 +42,15 @@ def main() -> None:
         if existing:
             df[existing] = df[existing].apply(pd.to_datetime, errors="coerce")
         df.to_parquet(parquet_path, index=False)
+        # Keep the FinBERT join artifact in sync with the canonical joined dataset.
+        if name == "gdelt_ohlcv_join.csv":
+            finbert_alias = PROCESSED / "gdelt_ohlcv_join_finbert.parquet"
+            df.to_parquet(finbert_alias, index=False)
         size_csv = csv_path.stat().st_size / 1024
         size_pq = parquet_path.stat().st_size / 1024
-        print(f"  {name} -> {parquet_path.name} ({size_csv:.0f}KB -> {size_pq:.0f}KB)")
+        print(f"  {name} -> {parquet_path.name} ({len(df):,} rows, {size_csv:.0f}KB -> {size_pq:.0f}KB)")
+        if name == "gdelt_ohlcv_join.csv":
+            print("  gdelt_ohlcv_join.csv -> gdelt_ohlcv_join_finbert.parquet (synced alias)")
     print("Done.")
 
 
