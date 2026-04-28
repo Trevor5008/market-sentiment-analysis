@@ -37,11 +37,11 @@ This repository is structured to support:
 
 ---
 ## Team
-**Team Lead**, PM: Trevor
-**ML & Research Lead**: Ellie
-**Data Analyst & Contributor**: Jero
-**Data Analyst & Contributor**: Mat
-**Data Analyst & Contributor**: Sebastian
+- **Team Lead & PM**: Trevor
+- **ML & Research Lead**: Ellie
+- **Data Analyst & Contributor**: Jero
+- **Data Analyst & Contributor**: Mat
+- **Data Analyst & Contributor**: Sebastian
 
 ## Research Questions
 
